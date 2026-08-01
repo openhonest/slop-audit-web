@@ -77,3 +77,26 @@ def test_share_text_includes_the_slug():
     # Wording is in copy.md; only the slug fill-in is guaranteed by the logic.
     card = build_scorecard("owner/repo", "python", INFINITE)
     assert "owner/repo" in card["share_text"]
+
+
+def test_culprits_enumerate_the_flagged_functions():
+    results = {
+        "L1.18": {"value": 47.0, "band": "Slop", "details": "2/63 functions reference external mutable state (python)"},
+        "L1.18b": {"findings": [
+            {"file": "b.py", "line": 5, "function": "bar", "verdict": "bounded", "state": ["self.flag"]},
+            {"file": "a.py", "line": 10, "function": "foo", "verdict": "unbounded", "state": ["self.cache"]},
+            {"file": "c.py", "line": 3, "function": "baz", "verdict": "undetermined", "state": []},
+        ]},
+    }
+    card = build_scorecard("owner/repo", "python", results)
+    # unbounded first, then undetermined; the bounded one is not a problem and is dropped.
+    assert [c["function"] for c in card["culprits"]] == ["foo", "baz"]
+    assert card["culprits"][0]["file"] == "a.py" and card["culprits"][0]["line"] == 10
+    assert card["culprits"][0]["state"] == "self.cache"
+    assert card["culprits"][1]["state"] == "(state not located)"
+    assert card["culprits_more"] == 0
+
+
+def test_finite_has_no_culprits():
+    card = build_scorecard("owner/repo", "python", PURE)
+    assert card["culprits"] == []

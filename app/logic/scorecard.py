@@ -64,6 +64,8 @@ class Scorecard(TypedDict):
     infinite_funcs: int | None
     total_funcs: int | None
     decision_points: int | None
+    culprits: list[dict[str, Any]]   # the specific functions that make it uncoverable
+    culprits_more: int               # how many culprits beyond the shown cap
     core: list[Metric]
     audit: list[Metric]
     share_text: str
@@ -177,6 +179,32 @@ def _share_text(slug: str, cov: dict[str, Any]) -> str:
     return text("share.na", slug=slug)
 
 
+_CULPRIT_CAP = 25
+
+
+def _culprits(l18b: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    """The specific functions that make coverage impossible or unknown, from the
+    L1.18b state-bounds findings. Unbounded first, then undetermined; bounded
+    functions are not problems and are dropped."""
+    findings = l18b.get("findings", []) if isinstance(l18b, dict) else []
+    order = {"unbounded": 0, "undetermined": 1}
+    flagged = sorted(
+        (f for f in findings if f.get("verdict") in order),
+        key=lambda f: (order[f["verdict"]], f.get("file", ""), f.get("line", 0)),
+    )
+    shown = [
+        {
+            "file": f.get("file", ""),
+            "line": f.get("line", 0),
+            "function": f.get("function", "?"),
+            "verdict": f.get("verdict", ""),
+            "state": ", ".join(f.get("state", [])) or "(state not located)",
+        }
+        for f in flagged[:_CULPRIT_CAP]
+    ]
+    return shown, max(0, len(flagged) - _CULPRIT_CAP)
+
+
 def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     l18 = results.get("L1.18", {"value": "n/a", "band": "n/a"})
     band = str(l18.get("band", "n/a"))
@@ -186,6 +214,7 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     cover = pc.get("value") if isinstance(pc.get("value"), int) else None
 
     cov = _coverage(band, _func_counts(l18), cover)
+    culprits, culprits_more = _culprits(results.get("L1.18b", {}))
 
     return {
         "slug": slug,
@@ -205,6 +234,8 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
         "infinite_funcs": cov["infinite_funcs"],
         "total_funcs": cov["total_funcs"],
         "decision_points": decisions,
+        "culprits": culprits,
+        "culprits_more": culprits_more,
         "core": _metrics(_CORE, results, "core"),
         "audit": _metrics(_AUDIT, results, "audit"),
         "share_text": _share_text(slug, cov),

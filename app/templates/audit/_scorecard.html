@@ -58,6 +58,23 @@
   {% endif %}
   {% if card.status %}<p class="cover__status cover__status--{{ card.band | lower | replace(' ', '-') }}">{{ card.status | safe }}</p>{% endif %}
 
+  {% if card.culprits %}
+  <section class="culprits">
+    <h3 class="culprits__head">{{ copy['culprits.heading'] }}</h3>
+    <p class="culprits__note">{{ copy['culprits.note'] | safe }}</p>
+    <ul class="culprits__list">
+      {% for c in card.culprits %}
+      <li class="culprit culprit--{{ c.verdict }}">
+        <code class="culprit__loc">{{ c.file }}:{{ c.line }}</code>
+        <span class="culprit__fn">{{ c.function }}()</span>
+        <span class="culprit__state">reads {{ c.state }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if card.culprits_more %}<p class="culprits__more">and {{ card.culprits_more }} more</p>{% endif %}
+  </section>
+  {% endif %}
+
   {% if card.core %}
   <section class="group">
     <h3 class="group__title">{{ copy['group.core.title'] }}</h3>

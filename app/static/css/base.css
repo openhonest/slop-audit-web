@@ -191,6 +191,27 @@ body {
 .cover__status--not-healthy { color: var(--nothealthy); }
 .cover__status--slop { color: var(--slop); }
 
+/* --- Culprits: the specific functions responsible --------------------------- */
+.culprits { margin: 0 0 1.75rem; }
+.culprits__head { font-size: 1.05rem; margin: 0 0 0.3rem; }
+.culprits__note { color: var(--text-dim); font-size: 0.88rem; margin: 0 0 0.9rem; }
+.culprits__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.culprit {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.7rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--slop);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.culprit--undetermined { border-left-color: var(--nothealthy); }
+.culprit__loc { font-family: var(--mono); font-size: 0.8rem; color: var(--institutional); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem 0.4rem; }
+.culprit__fn { font-family: var(--mono); font-weight: 700; color: var(--slop); }
+.culprit--undetermined .culprit__fn { color: var(--nothealthy); }
+.culprit__state { color: var(--text-dim); }
+.culprits__more { color: var(--text-muted); font-size: 0.85rem; margin: 0.6rem 0 0; }
+
 /* --- Metric groups ---------------------------------------------------------- */
 .group { margin-bottom: 1.75rem; }
 .group__title { font-size: 1.1rem; margin: 0 0 0.3rem; }

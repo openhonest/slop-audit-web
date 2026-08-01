@@ -39,6 +39,12 @@ A large share of the code is tangled in shared state, until that is undone that 
 ## status.infinite.Slop
 This code cannot be exhaustively tested.
 
+## culprits.heading
+The functions responsible
+
+## culprits.note
+Each one reads shared state the tests cannot pin down. Make these read only their inputs and the answer above changes.
+
 ## detail.na
 Point it at a public repository with source in a language the analyzer reads (Python, TypeScript, JavaScript, Java, Go, Rust).
 
