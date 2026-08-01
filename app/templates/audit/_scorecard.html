@@ -1,0 +1,90 @@
+{% macro metric(m) %}
+<li class="metric metric--{{ m.band | lower | replace(' ', '-') | replace('/', '') }}">
+  <div class="metric__top">
+    <span class="metric__value">{{ m.value }}</span>
+    <div class="metric__naming">
+      <span class="metric__label">{{ m.label }}</span>
+      <span class="metric__tech">{{ m.tech }}</span>
+    </div>
+    <span class="metric__band" title="Slop Audit band">{{ m.band_word }}</span>
+  </div>
+  <p class="metric__meaning">{{ m.meaning | safe }}</p>
+  {% if m.maps_to %}
+  <div class="metric__maps">
+    <span class="metric__maps-lead">Counts toward</span>
+    {% for d in m.maps_to %}
+    <span class="dim">
+      <span class="dim__name">{{ d.dimension }}</span>
+      <span class="dim__frameworks">{{ d.frameworks }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</li>
+{% endmacro %}
+
+<article class="card card--{{ card.band | lower | replace(' ', '-') }}">
+  <header class="card__head">
+    <div>
+      <p class="card__eyebrow">Slop Audit result</p>
+      <h2 class="card__slug">{{ card.slug }}</h2>
+    </div>
+    <span class="card__lang">{{ card.lang }}</span>
+  </header>
+
+  <p class="card__question">{{ card.question }}</p>
+
+  {% if card.kind == 'finite' %}
+  <div class="cover cover--finite">
+    {% if card.verdict_line %}<p class="cover__verdict cover__verdict--good">{{ card.verdict_line }}</p>{% endif %}
+    {% if card.paths %}
+    <div class="cover__practical">
+      <span class="cover__pnum">{{ "{:,}".format(card.paths) }}</span>
+      <span class="cover__plabel">{{ copy['label.practical'] }}</span>
+    </div>
+    {% endif %}
+    <p class="cover__detail">{{ card.detail | safe }}</p>
+  </div>
+  {% else %}
+  <div class="cover cover--{{ card.kind }}">
+    {% if card.verdict_line %}<p class="cover__verdict cover__verdict--bad">{{ card.verdict_line }}</p>{% endif %}
+    <div class="cover__answer">
+      {% if card.qualifier %}<span class="cover__qual">{{ card.qualifier }}</span>{% endif %}
+      <span class="cover__num">{{ card.answer }}</span>
+      {% if card.kind == 'infinite' %}<span class="cover__unit">{{ copy['unit.infinite'] }}</span>{% endif %}
+    </div>
+    <p class="cover__detail">{{ card.detail | safe }}</p>
+  </div>
+  {% endif %}
+  {% if card.status %}<p class="cover__status cover__status--{{ card.band | lower | replace(' ', '-') }}">{{ card.status | safe }}</p>{% endif %}
+
+  {% if card.core %}
+  <section class="group">
+    <h3 class="group__title">{{ copy['group.core.title'] }}</h3>
+    <p class="group__note">{{ copy['group.core.note'] | safe }}</p>
+    <ul class="metrics">
+      {% for m in card.core %}{{ metric(m) }}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if card.audit %}
+  <section class="group">
+    <h3 class="group__title">{{ copy['group.audit.title'] }}</h3>
+    <p class="group__note">{{ copy['group.audit.note'] | safe }}</p>
+    <ul class="metrics">
+      {% for m in card.audit %}{{ metric(m) }}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <footer class="card__foot">
+    <div class="card__share">
+      <a class="button button--primary" target="_blank" rel="noopener"
+         href="https://twitter.com/intent/tweet?text={{ card.share_text | urlencode }}">Share this result</a>
+      <a class="button button--ghost" target="_blank" rel="noopener"
+         href="https://github.com/openhonest/slop-audit/blob/main/03-layer1-indicators.md">How each number is measured</a>
+    </div>
+    <p class="card__fine">{{ copy['footer.fine'] | safe }}</p>
+  </footer>
+</article>

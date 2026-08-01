@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.metadata]
+# slop-audit-l1 is pinned via git URL (direct reference) until it ships to PyPI.
+allow-direct-references = true
+
+[project]
+name = "slop-audit-web"
+version = "0.1.0"
+description = "Paste a public GitHub repo, get its finite-testability scorecard. The hosted Slop Audit."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0",
+    "slop-audit-l1 @ git+https://github.com/openhonest/slop-audit.git@f9640b7a18cf593b4c7fbd8e7c28d5bfaa26e10d#subdirectory=tools/l1_analyzer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "ruff>=0.8",
+    "pre-commit>=3.7",
+]
+
+[project.scripts]
+slop-audit-web = "app.main:run"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

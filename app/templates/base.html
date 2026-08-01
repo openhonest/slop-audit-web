@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Slop Audit{% endblock %}</title>
+  <meta name="description" content="Paste a public GitHub repo and see how much of it is structurally impossible to verify through testing. The hosted Slop Audit, an open standard for measuring software verifiability.">
+  <link rel="stylesheet" href="/static/css/base.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="site-header__logo">Slop Audit</a>
+    <nav class="site-header__nav">
+      <a href="https://slopaudit.org">Standard</a>
+      <a href="https://github.com/openhonest/slop-audit">GitHub</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    An open standard by the <a href="https://openhonest.org">Open Honest Foundation</a>. It measures what coverage cannot.
+  </footer>
+</body>
+</html>

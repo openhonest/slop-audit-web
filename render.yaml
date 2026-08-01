@@ -1,0 +1,32 @@
+# Render blueprint for the Slop Audit web origin.
+# Cloudflare sits in front (see cloudflare/apply-audit-cdn.sh); this is the origin.
+#
+# Native Python runtime. It needs `git` at runtime (the app shells out to
+# `git clone`); Render's native environment ships git. Verify after first deploy
+# with: Render shell -> `git --version`. If git is ever absent, switch this
+# service to a Dockerfile that installs git.
+services:
+  - type: web
+    name: slop-audit-web
+    runtime: python
+    plan: starter            # fixed monthly; no per-request billing. Free tier sleeps, bad for a demo.
+    region: oregon
+    buildCommand: "pip install uv && uv sync"
+    startCommand: "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: WORK_DIR
+        value: "/tmp/slop-audit-web"
+      - key: MAX_REPO_SIZE_KB
+        value: "300000"       # ~300 MB. Repos over this are rejected before cloning.
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "10"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      # Read-only GitHub token: lifts the pre-clone size check from 60 to 5000
+      # API calls/hour. Set in the dashboard, never commit it.
+      - key: GITHUB_TOKEN
+        sync: false
