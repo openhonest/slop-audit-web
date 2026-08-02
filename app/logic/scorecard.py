@@ -90,7 +90,6 @@ _BAND_WORD: dict[str, str] = {
 # lives in copy.md, keyed by the indicator number. `maps_to` is empty for the
 # finite-testability core by design.
 _CORE: tuple[dict[str, Any], ...] = (
-    {"key": "L1.18", "unit": "%", "maps_to": []},
     {"key": "L1.19", "unit": "", "maps_to": []},
 )
 _AUDIT: tuple[dict[str, Any], ...] = (
