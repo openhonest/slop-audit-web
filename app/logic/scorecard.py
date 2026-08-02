@@ -62,8 +62,9 @@ class Scorecard(TypedDict):
     paths: int | None    # "can" only: fewest runs that walk every reachable branch
     band: str
     band_word: str
-    mutable_state: str   # value-count L1.18 scalar (v1), shown as a secondary number
+    mutable_state: str   # L1.18 mutable-state ratio, shown as a secondary metric
     resolvable: str      # L1.18b resolvable fraction, e.g. "95%"
+    testable: str | None   # share of state that is finitely testable, e.g. "72%"; 100% = fully testable
     neutral_count: int
     promiscuous_count: int
     unresolved_count: int
@@ -205,6 +206,10 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     l18b = l18b if isinstance(l18b, dict) else {}
     counts = l18b.get("counts") or _ZERO_COUNTS
     status = _hero_status(band, counts)
+    total_state = sum(counts.values())
+    # Share of state that is finitely testable: 100% = fully testable, 0% = none.
+    # No state at all is trivially fully testable. Undetermined counts against it.
+    testable = None if status == "na" else f"{100 if total_state == 0 else round(counts.get('neutral', 0) / total_state * 100)}%"
 
     pc = results.get("path_cover", {})
     cover = pc.get("value") if isinstance(pc.get("value"), int) else None
@@ -226,6 +231,7 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
         "band_word": _BAND_WORD.get(band, "No data"),
         "mutable_state": _value_str(l18, "%"),
         "resolvable": _pct(l18b.get("resolvable_fraction")),
+        "testable": testable,
         "neutral_count": counts.get("neutral", 0),
         "promiscuous_count": promiscuous,
         "unresolved_count": counts.get("unresolved", 0),

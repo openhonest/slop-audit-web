@@ -96,7 +96,7 @@ How much depends on hidden state
 L1.18 · mutable-state ratio
 
 ## meaning.L1.18
-The share of functions that use data they don't own. This is the older, rougher measure, kept for comparison. The answer at the top comes from a sharper check: does that data reach a decision we cannot pin down. High numbers here still predict race conditions, flaky tests, and stale-cache bugs.
+The share of functions whose behavior depends on data they don't own. The more there are, the more the code reaches outside itself, which predicts race conditions, flaky tests, and stale-cache bugs.
 
 ## label.L1.19
 Decisions that could be exhaustively checked

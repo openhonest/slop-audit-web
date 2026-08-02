@@ -226,6 +226,12 @@ body {
 .verdict__detail { color: var(--text-dim); font-size: 0.95rem; margin: 0; }
 .verdict__detail a { color: var(--accent); }
 
+.verdict__score { margin: 1rem 0 0; font-size: 1.05rem; color: var(--text); }
+.verdict__score strong { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; }
+.verdict--can .verdict__score strong { color: var(--healthy); }
+.verdict--might .verdict__score strong { color: var(--nothealthy); }
+.verdict--cannot .verdict__score strong { color: var(--slop); }
+
 .verdict__dist {
   list-style: none; margin: 1rem 0 0; padding: 0.9rem 0 0;
   border-top: 1px solid var(--border);

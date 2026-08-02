@@ -126,3 +126,10 @@ def test_scoped_out_is_disclosed_when_files_were_bucketed():
 
 def test_no_scoped_out_when_nothing_was_bucketed():
     assert build_scorecard("owner/repo", "python", CAN)["scoped_out"] is None
+
+
+def test_testable_percentage_is_the_share_of_finitely_testable_state():
+    # 100% when all state is neutral, a lower fraction otherwise, None when n/a.
+    assert build_scorecard("owner/repo", "python", CAN)["testable"] == "100%"       # 8 of 8
+    assert build_scorecard("owner/repo", "python", CANNOT)["testable"] == "57%"      # 4 of 7
+    assert build_scorecard("owner/repo", "python", NA)["testable"] is None

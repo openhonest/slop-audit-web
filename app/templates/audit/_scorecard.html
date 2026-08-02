@@ -48,11 +48,11 @@
     </div>
     {% endif %}
     <p class="verdict__detail">{{ card.detail | safe }}</p>
+    {% if card.testable %}<p class="verdict__score"><strong>{{ card.testable }}</strong> of its state is finitely testable</p>{% endif %}
     <ul class="verdict__dist">
-      <li class="dist dist--can">{{ card.neutral_count }} finitely testable</li>
+      <li class="dist dist--can">{{ card.neutral_count }} testable</li>
       <li class="dist dist--cannot">{{ card.promiscuous_count }} unbounded</li>
       <li class="dist dist--might">{{ card.unresolved_count }} undetermined</li>
-      <li class="dist dist--res">{{ card.resolvable }} resolvable</li>
     </ul>
   </div>
   {% endif %}
@@ -95,7 +95,7 @@
   {% endif %}
 
   {% if card.scoped_out %}
-  <p class="scoped">Scoped out of this audit: {{ card.scoped_out.total }} file{{ 's' if card.scoped_out.total != 1 }} not part of the library ({{ card.scoped_out.reasons }}){% if card.scoped_out.paths %} — <span class="scoped__paths">{{ card.scoped_out.paths | join(', ') }}{% if card.scoped_out.paths_more %} +{{ card.scoped_out.paths_more }} more{% endif %}</span>{% endif %}. {{ copy['scoped.why'] }}</p>
+  <p class="scoped">Scoped out of this audit: {{ card.scoped_out.total }} file{{ 's' if card.scoped_out.total != 1 }} not part of the library ({{ card.scoped_out.reasons }}){% if card.scoped_out.paths %}, including <span class="scoped__paths">{{ card.scoped_out.paths | join(', ') }}{% if card.scoped_out.paths_more %} +{{ card.scoped_out.paths_more }} more{% endif %}</span>{% endif %}. {{ copy['scoped.why'] }}</p>
   {% endif %}
 
   <footer class="card__foot">
