@@ -4,30 +4,36 @@ tell a story with. No I/O. `build_scorecard(slug, lang, results)` is testable
 directly: assert it equals the expected view model.
 
 All user-facing wording lives in app/copy.md and is loaded through app.copy. This
-module holds only the logic: which band, which indicators, which numbers fill the
+module holds only the logic: which status, which indicators, which numbers fill the
 {braces}. To reword the page, edit copy.md, not this file.
 
-Two things the logic must never get wrong (load-bearing honesty, not style):
-  - L1.18 / L1.19 / L1.20 are finite-testability indicators, NOT mapped to any of
-    the 18 compliance dimensions. They get their own group and no dimension tag.
-  - L1.15 maps to Dependency injection (4.12), not a "type safety" dimension.
-The hero answers "how many end-to-end test cases would fully cover this code?"
-For code with unbounded mutable state that is infinite; for pure code it is a
-small, attainable number (the edge cover from the analyzer's path_cover).
+The hero answers "can this code be exhaustively tested?" from the finite-testability
+meter (L1.18b), which returns three verdicts per piece of state:
+
+  - any PROMISCUOUS state -> "cannot" (red): a reaching partition is provably
+    unbounded, so no finite test suite covers it. Mathematically impossible.
+  - else any UNRESOLVED   -> "might" (yellow): nothing is provably unbounded, but
+    the analyzer could not statically decide some state (dynamic dispatch,
+    reflection). Resolvable; the culprits list is what to fix.
+  - else all NEUTRAL      -> "can" (green): every piece of state is reached by a
+    finite set of decisions. Finitely testable, and path_cover is the run count.
+  - L1.18 n/a             -> "na": no source in a language the analyzer reads.
+
+The value-count L1.18 scalar is retained and shown as a secondary number (the v1
+mutable-state ratio), NOT as the hero verdict.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Any, TypedDict
 
 from app.copy import text
 
-# The analyzer reports the counts inside L1.18's detail string, e.g.
-# "2/63 functions reference external mutable state (python)".
-_FUNC_COUNTS = re.compile(r"(\d+)\s*/\s*(\d+)\s+functions reference external mutable state")
-
-_INFINITE_BANDS = frozenset({"Healthy", "Not Healthy", "Slop"})
+_ZERO_COUNTS = {"neutral": 0, "promiscuous": 0, "unresolved": 0}
+_CULPRIT_CAP = 25
+# Which verdict is the culprit for each status: the promiscuous state proves
+# "cannot"; the unresolved state is what you resolve to escape "might".
+_WANT = {"cannot": "promiscuous", "might": "unresolved"}
 
 
 class DimensionRef(TypedDict):
@@ -50,22 +56,22 @@ class Scorecard(TypedDict):
     slug: str
     lang: str
     question: str
-    qualifier: str
-    answer: str          # "∞", "", "Finite", or "n/a"
-    kind: str            # "infinite" | "finite" | "n/a"
-    verdict_line: str
-    paths: int | None    # finite case: minimum runs that walk every reachable branch
+    status: str          # "can" | "might" | "cannot" | "na"
+    headline: str        # the green/yellow/red sentence
     detail: str
-    status: str
+    paths: int | None    # "can" only: fewest runs that walk every reachable branch
     band: str
     band_word: str
-    mutable_state: str
-    finite_funcs: int | None
-    infinite_funcs: int | None
-    total_funcs: int | None
+    mutable_state: str   # value-count L1.18 scalar (v1), shown as a secondary number
+    resolvable: str      # L1.18b resolvable fraction, e.g. "95%"
+    neutral_count: int
+    promiscuous_count: int
+    unresolved_count: int
     decision_points: int | None
-    culprits: list[dict[str, Any]]   # the specific functions that make it uncoverable
-    culprits_more: int               # how many culprits beyond the shown cap
+    culprits_heading: str
+    culprits_note: str
+    culprits: list[dict[str, Any]]   # the state that decides the verdict (per piece of state)
+    culprits_more: int
     core: list[Metric]
     audit: list[Metric]
     share_text: str
@@ -108,14 +114,8 @@ def _value_str(result: dict[str, Any], unit: str) -> str:
     return f"{value}{unit}"
 
 
-def _func_counts(l18: dict[str, Any]) -> tuple[int, int] | None:
-    match = _FUNC_COUNTS.search(str(l18.get("details", "")))
-    if match is None:
-        return None
-    mutable, total = int(match.group(1)), int(match.group(2))
-    if total <= 0:
-        return None
-    return mutable, total
+def _pct(frac: Any) -> str:
+    return f"{round(frac * 100)}%" if isinstance(frac, (int, float)) else "n/a"
 
 
 def _metric(spec: dict[str, Any], result: dict[str, Any], group: str) -> Metric:
@@ -137,106 +137,86 @@ def _metrics(specs: tuple[dict[str, Any], ...], results: dict[str, Any], group: 
     return [_metric(spec, results[spec["key"]], group) for spec in specs if spec["key"] in results]
 
 
-def _coverage(band: str, counts: tuple[int, int] | None, cover: int | None) -> dict[str, Any]:
-    """The hero answer + explanation. Infinite when any function reads mutable
-    state; otherwise finite, and `cover` (path_cover) is the attainable number."""
-    if counts is None or band == "n/a":
-        return {
-            "answer": "n/a", "kind": "n/a", "qualifier": "", "verdict_line": "", "paths": None,
-            "detail": text("detail.na"), "status": "",
-            "finite_funcs": None, "infinite_funcs": None, "total_funcs": None,
-        }
-    mutable, total = counts
-    finite = total - mutable
-    common = {"finite_funcs": finite, "infinite_funcs": mutable, "total_funcs": total}
-    if mutable > 0:
-        plural = "function" if mutable == 1 else "functions"
-        return {
-            "answer": "∞", "kind": "infinite", "qualifier": "", "paths": None,
-            "verdict_line": text("verdict.infinite"),
-            "detail": text("detail.infinite", mutable=f"{mutable:,}", total=f"{total:,}", plural=plural),
-            "status": text(f"status.infinite.{band}") if band in _INFINITE_BANDS else "",
-            **common,
-        }
-    # Finite: full verification is possible. Green only, no status line, no giant
-    # number. The detail names the edge-cover count; if it is somehow absent the
-    # verdict stands on its own.
-    return {
-        "answer": "", "kind": "finite", "qualifier": "", "paths": cover,
-        "verdict_line": text("verdict.finite"),
-        "detail": text("detail.finite", cover=f"{cover:,}") if cover else "",
-        "status": "",
-        **common,
-    }
+def _hero_status(band: str, counts: dict[str, int]) -> str:
+    if band == "n/a":
+        return "na"
+    if counts.get("promiscuous", 0) > 0:
+        return "cannot"
+    if counts.get("unresolved", 0) > 0:
+        return "might"
+    return "can"
 
 
-def _share_text(slug: str, cov: dict[str, Any]) -> str:
-    if cov["kind"] == "infinite":
-        return text("share.infinite", slug=slug,
-                    mutable=f"{cov['infinite_funcs']:,}", total=f"{cov['total_funcs']:,}")
-    if cov["kind"] == "finite":
-        return text("share.finite", slug=slug)
-    return text("share.na", slug=slug)
-
-
-_CULPRIT_CAP = 25
-
-
-def _culprits(l18b: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
-    """The specific functions that make coverage impossible or unknown, from the
-    L1.18b state-bounds findings. Unbounded first, then undetermined; bounded
-    functions are not problems and are dropped."""
+def _culprits(l18b: dict[str, Any], status: str) -> tuple[list[dict[str, Any]], int]:
+    """The state that decides the verdict, per piece of state (class/module scope).
+    For 'cannot' the provably-unbounded (promiscuous) state; for 'might' the
+    undecidable (unresolved) state. Decision-driving state first."""
+    want = _WANT.get(status)
+    if want is None:
+        return [], 0
     findings = l18b.get("findings", []) if isinstance(l18b, dict) else []
-    order = {"unbounded": 0, "undetermined": 1}
-    flagged = sorted(
-        (f for f in findings if f.get("verdict") in order),
-        key=lambda f: (order[f["verdict"]], f.get("file", ""), f.get("line", 0)),
-    )
+    flagged = [f for f in findings if f.get("verdict") == want]
+    flagged.sort(key=lambda f: (not f.get("drives_decision", False), f.get("file", ""), f.get("line", 0)))
     shown = [
         {
             "file": f.get("file", ""),
             "line": f.get("line", 0),
-            "function": f.get("function", "?"),
+            "state": f.get("state", "?"),
             "verdict": f.get("verdict", ""),
-            "state": ", ".join(f.get("state", [])) or "(state not located)",
+            "drives_decision": bool(f.get("drives_decision", False)),
         }
         for f in flagged[:_CULPRIT_CAP]
     ]
     return shown, max(0, len(flagged) - _CULPRIT_CAP)
 
 
+def _detail(status: str, promiscuous: int, cover: int | None) -> str:
+    if status == "na":
+        return text("detail.na")
+    if status == "cannot":
+        return text("detail.cannot", n=promiscuous, plural="piece" if promiscuous == 1 else "pieces")
+    if status == "can":
+        return text("detail.can", cover=f"{cover:,}") if cover else text("detail.can_nocover")
+    return text("detail.might")
+
+
 def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     l18 = results.get("L1.18", {"value": "n/a", "band": "n/a"})
     band = str(l18.get("band", "n/a"))
-    l19 = results.get("L1.19", {})
-    decisions = l19.get("value") if isinstance(l19.get("value"), int) else None
+    l18b = results.get("L1.18b", {})
+    l18b = l18b if isinstance(l18b, dict) else {}
+    counts = l18b.get("counts") or _ZERO_COUNTS
+    status = _hero_status(band, counts)
+
     pc = results.get("path_cover", {})
     cover = pc.get("value") if isinstance(pc.get("value"), int) else None
+    l19 = results.get("L1.19", {})
+    decisions = l19.get("value") if isinstance(l19.get("value"), int) else None
 
-    cov = _coverage(band, _func_counts(l18), cover)
-    culprits, culprits_more = _culprits(results.get("L1.18b", {}))
+    culprits, culprits_more = _culprits(l18b, status)
+    promiscuous = counts.get("promiscuous", 0)
 
     return {
         "slug": slug,
         "lang": lang,
         "question": text("question"),
-        "qualifier": cov["qualifier"],
-        "answer": cov["answer"],
-        "kind": cov["kind"],
-        "verdict_line": cov["verdict_line"],
-        "paths": cov["paths"],
-        "detail": cov["detail"],
-        "status": cov["status"],
+        "status": status,
+        "headline": "" if status == "na" else text(f"headline.{status}"),
+        "detail": _detail(status, promiscuous, cover),
+        "paths": cover if status == "can" else None,
         "band": band,
         "band_word": _BAND_WORD.get(band, "No data"),
         "mutable_state": _value_str(l18, "%"),
-        "finite_funcs": cov["finite_funcs"],
-        "infinite_funcs": cov["infinite_funcs"],
-        "total_funcs": cov["total_funcs"],
+        "resolvable": _pct(l18b.get("resolvable_fraction")),
+        "neutral_count": counts.get("neutral", 0),
+        "promiscuous_count": promiscuous,
+        "unresolved_count": counts.get("unresolved", 0),
         "decision_points": decisions,
+        "culprits_heading": text(f"culprits.heading.{status}") if status in _WANT else "",
+        "culprits_note": text(f"culprits.note.{status}") if status in _WANT else "",
         "culprits": culprits,
         "culprits_more": culprits_more,
         "core": _metrics(_CORE, results, "core"),
         "audit": _metrics(_AUDIT, results, "audit"),
-        "share_text": _share_text(slug, cov),
+        "share_text": text(f"share.{status}", slug=slug),
     }

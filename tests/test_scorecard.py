@@ -1,12 +1,50 @@
-"""Pure tests for the scorecard view model. assert f(input) == expected, no mocks."""
+"""Pure tests for the scorecard view model. assert f(input) == expected, no mocks.
+
+The hero is driven by the finite-testability meter (L1.18b), not the value-count
+L1.18 scalar: any promiscuous state -> cannot; else any unresolved -> might; else
+all neutral -> can. The L1.18 scalar is retained only as a secondary number.
+"""
 
 from app.logic.scorecard import build_scorecard
 
-# openhonest/slop-audit shape: 2 of 63 functions read mutable state -> infinite.
-INFINITE = {
+
+def _l18b(neutral=0, promiscuous=0, unresolved=0, findings=None, resolvable=1.0):
+    return {
+        "counts": {"neutral": neutral, "promiscuous": promiscuous, "unresolved": unresolved},
+        "resolvable_fraction": resolvable,
+        "findings": findings or [],
+    }
+
+
+# Value-count says 12% mutable (old model would call this "infinite"), but every
+# piece of state is neutral under partition-count -> definitely testable.
+CAN = {
     "lang": "python",
-    "L1.18": {"value": 3.2, "band": "Healthy", "details": "2/63 functions reference external mutable state (python)"},
-    "L1.19": {"value": 312, "band": "n/a"},
+    "L1.18": {"value": 12.0, "band": "Healthy", "details": "5/40 functions reference external mutable state (python)"},
+    "L1.18b": _l18b(neutral=8, resolvable=1.0),
+    "L1.19": {"value": 10, "band": "n/a"},
+    "path_cover": {"value": 7, "band": "n/a"},
+}
+
+MIGHT = {
+    "lang": "python",
+    "L1.18": {"value": 30.0, "band": "Slop", "details": "9/30 functions reference external mutable state (python)"},
+    "L1.18b": _l18b(neutral=5, unresolved=3, resolvable=0.625, findings=[
+        {"file": "r.py", "line": 12, "state": "self.handler", "verdict": "unresolved", "drives_decision": True},
+        {"file": "p.py", "line": 4, "state": "self.value", "verdict": "unresolved", "drives_decision": True},
+        {"file": "z.py", "line": 9, "state": "self.mode", "verdict": "neutral", "drives_decision": True},
+    ]),
+}
+
+CANNOT = {
+    "lang": "python",
+    "L1.18": {"value": 47.0, "band": "Slop", "details": "20/63 functions reference external mutable state (python)"},
+    "L1.18b": _l18b(neutral=4, promiscuous=2, unresolved=1, resolvable=0.857, findings=[
+        {"file": "a.py", "line": 10, "state": "self.cache", "verdict": "promiscuous", "drives_decision": True},
+        {"file": "g.py", "line": 2, "state": "_registry", "verdict": "promiscuous", "drives_decision": True},
+        {"file": "c.py", "line": 3, "state": "self.sink", "verdict": "unresolved", "drives_decision": True},
+        {"file": "b.py", "line": 5, "state": "self.flag", "verdict": "neutral", "drives_decision": True},
+    ]),
     "L1.15": {"value": 6.68, "band": "Slop"},
     "L1.17": {"value": 0.0, "band": "Healthy"},
     "L1.16": {"value": 0.0, "band": "Healthy"},
@@ -15,88 +53,60 @@ INFINITE = {
     "L1.9": {"value": "present", "band": "Healthy"},
 }
 
-# A hypothetical pure repo: 0 of 40 functions read mutable state -> finite.
-PURE = {
-    "lang": "python",
-    "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/40 functions reference external mutable state (python)"},
-    "L1.19": {"value": 10, "band": "n/a"},
-    "path_cover": {"value": 7, "band": "n/a"},
-}
+NA = {"lang": "unknown", "L1.18": {"value": "n/a", "band": "n/a"}}
 
 
-def test_infinite_answer_when_any_function_reads_mutable_state():
-    card = build_scorecard("owner/repo", "python", INFINITE)
-    assert card["kind"] == "infinite"
-    assert card["answer"] == "∞"
-    assert card["infinite_funcs"] == 2
-    assert card["finite_funcs"] == 61
-    assert card["total_funcs"] == 63
-    assert "2 of 63" in card["detail"]
+def test_can_when_all_state_is_neutral():
+    card = build_scorecard("owner/repo", "python", CAN)
+    assert card["status"] == "can"
+    assert card["headline"]
+    assert card["paths"] == 7                 # only the green case shows the run count
+    assert card["culprits"] == []
+    assert card["resolvable"] == "100%"
 
 
-def test_finite_shows_only_green_no_giant_number():
-    # Full verification possible: the card shows the edge-cover count and the
-    # green verdict, and never the astronomical combination figure.
-    card = build_scorecard("owner/repo", "python", PURE)
-    assert card["kind"] == "finite"
-    assert card["answer"] == ""          # the giant number is not shown at all
-    assert card["infinite_funcs"] == 0
-
-
-def test_finite_leads_with_verdict_and_the_edge_cover_count():
-    # Assert structure, not wording: the wording lives in copy.md and is edited freely.
-    card = build_scorecard("owner/repo", "python", PURE)
-    assert card["verdict_line"]              # a green verdict is shown
-    assert card["paths"] == 7                # the edge-cover count from path_cover
-    assert "7" in card["detail"]             # the number is filled into the copy
-    assert card["status"] == ""              # no separate finite status line
-
-
-def test_infinite_leads_with_the_bad_news_and_no_practical_count():
-    card = build_scorecard("owner/repo", "python", INFINITE)
-    assert card["verdict_line"] == "Can't be fully verified."
+def test_might_when_unresolved_but_no_promiscuous():
+    card = build_scorecard("owner/repo", "python", MIGHT)
+    assert card["status"] == "might"
     assert card["paths"] is None
+    # culprits are the unresolved state (decision-driving first, then by file), not the neutral one
+    assert [c["state"] for c in card["culprits"]] == ["self.value", "self.handler"]
+    assert all(c["verdict"] == "unresolved" for c in card["culprits"])
+    assert card["culprits_heading"]
+
+
+def test_cannot_when_any_promiscuous():
+    card = build_scorecard("owner/repo", "python", CANNOT)
+    assert card["status"] == "cannot"
+    assert card["paths"] is None
+    # culprits are the promiscuous state only (the proof), not the unresolved/neutral
+    assert [c["state"] for c in card["culprits"]] == ["self.cache", "_registry"]
+    assert all(c["verdict"] == "promiscuous" for c in card["culprits"])
+    assert card["promiscuous_count"] == 2
+    assert "{n}" not in card["detail"] and "2" in card["detail"]   # {n} filled from the count
+
+
+def test_na_when_no_recognized_source():
+    card = build_scorecard("owner/repo", "unknown", NA)
+    assert card["status"] == "na"
+    assert card["headline"] == ""
+    assert card["culprits"] == []
+
+
+def test_mutable_state_scalar_retained_as_secondary_number():
+    card = build_scorecard("owner/repo", "python", CANNOT)
+    assert card["mutable_state"] == "47.0%"   # the v1 value-count scalar is still shown
 
 
 def test_core_group_has_no_dimension_tags_audit_group_does():
-    card = build_scorecard("owner/repo", "python", INFINITE)
+    card = build_scorecard("owner/repo", "python", CANNOT)
     assert all(m["maps_to"] == [] for m in card["core"])
     assert all(m["maps_to"] for m in card["audit"])
     by_tech = {m["tech"]: m for m in card["audit"]}
     assert by_tech["L1.15 · type-escape density"]["maps_to"][0]["dimension"] == "Dependency injection · 4.12"
 
 
-def test_na_when_no_recognized_source():
-    card = build_scorecard("owner/repo", "unknown", {"L1.18": {"value": "n/a", "band": "n/a"}})
-    assert card["kind"] == "n/a"
-    assert card["answer"] == "n/a"
-    assert card["total_funcs"] is None
-
-
 def test_share_text_includes_the_slug():
-    # Wording is in copy.md; only the slug fill-in is guaranteed by the logic.
-    card = build_scorecard("owner/repo", "python", INFINITE)
-    assert "owner/repo" in card["share_text"]
-
-
-def test_culprits_enumerate_the_flagged_functions():
-    results = {
-        "L1.18": {"value": 47.0, "band": "Slop", "details": "2/63 functions reference external mutable state (python)"},
-        "L1.18b": {"findings": [
-            {"file": "b.py", "line": 5, "function": "bar", "verdict": "bounded", "state": ["self.flag"]},
-            {"file": "a.py", "line": 10, "function": "foo", "verdict": "unbounded", "state": ["self.cache"]},
-            {"file": "c.py", "line": 3, "function": "baz", "verdict": "undetermined", "state": []},
-        ]},
-    }
-    card = build_scorecard("owner/repo", "python", results)
-    # unbounded first, then undetermined; the bounded one is not a problem and is dropped.
-    assert [c["function"] for c in card["culprits"]] == ["foo", "baz"]
-    assert card["culprits"][0]["file"] == "a.py" and card["culprits"][0]["line"] == 10
-    assert card["culprits"][0]["state"] == "self.cache"
-    assert card["culprits"][1]["state"] == "(state not located)"
-    assert card["culprits_more"] == 0
-
-
-def test_finite_has_no_culprits():
-    card = build_scorecard("owner/repo", "python", PURE)
-    assert card["culprits"] == []
+    for results in (CAN, MIGHT, CANNOT):
+        card = build_scorecard("owner/repo", "python", results)
+        assert "owner/repo" in card["share_text"]

@@ -6,55 +6,63 @@ Each section is one paragraph; wrap the lines however you like, the app collapse
 them to a single string. Changes take effect on the next app start.
 
 ## question
-How many end-to-end test cases would fully cover this code?
-
-## verdict.finite
-Can be fully verified.
-
-## verdict.infinite
-Can't be fully verified.
+Can this code ever be fully tested?
 
 ## label.practical
-test cases can walk every branch the code can reach. This is the list you actually work through.
+test runs cover every path through the code, both sides of every yes-or-no. This is the whole list you would work through.
 
-## unit.infinite
-unbounded (no finite number exists)
+# --- GREEN: definitely testable ---------------------------------------------
 
-# --- The green (finite) explanation -----------------------------------------
+## headline.can
+This code definitely CAN be exhaustively tested.
 
-## detail.finite
-Full verification is possible here because no function shares mutable state. This means that we can count every possible state change. The Slop Audit builds the graph of every branch the code can reach and finds the fewest paths that walk all of it. {cover} test cases cover every path, both the taken and the not-taken side of each decision. There is no need to test every theoretically possible combination of functions because we can determine which ones call which other ones.
+## detail.can
+None of the data this code keeps can grow without limit, so a fixed number of tests can check every case. The Slop Audit worked out the fewest test runs that reach every path: {cover} runs cover them all.
 
-# --- The red (infinite) explanation -----------------------------------------
+## detail.can_nocover
+None of the data this code keeps can grow without limit, so a fixed number of tests can check every case. Run the [CLI](https://github.com/openhonest/slop-audit) to get the exact number of runs that cover every path.
 
-## detail.infinite
-{mutable} of {total} {plural} read shared mutable state that can grow without limit. Every value that state can take is another situation the function has to be tested in, and nothing caps how many there are, so no finite set of tests reaches all of them. More tests will not close that gap. Taking the shared state out of those {plural} will: once a function reads only its inputs, the situations become finite and you can cover them.
+# --- YELLOW: might be testable ----------------------------------------------
 
-## status.infinite.Healthy
-A few functions stand between this code and full coverage.
+## headline.might
+This code MIGHT be able to be exhaustively tested.
 
-## status.infinite.Not Healthy
-A large share of the code is tangled in shared state, until that is undone that part of the code cannot be exhaustively tested.
+## detail.might
+Nothing here is clearly endless, but we could not be sure. Some data gets handed to code we cannot follow: it is chosen while the program runs, or looked up by name, so we cannot list the values it might take. Fix the items below and you get a clear yes or no.
 
-## status.infinite.Slop
-This code cannot be exhaustively tested.
+## culprits.heading.might
+What you would have to fix
 
-## culprits.heading
-The functions responsible
+## culprits.note.might
+For each of these, the data is passed to something we cannot follow (a call chosen while the program runs, or a lookup by name). Make that part concrete, or limit the data to a fixed set of values, and each one turns into a clear yes or no.
 
-## culprits.note
-Each one reads shared state the tests cannot pin down. Make these read only their inputs and the answer above changes.
+# --- RED: cannot be tested --------------------------------------------------
+
+## headline.cannot
+This code mathematically CANNOT be exhaustively tested.
+
+## detail.cannot
+{n} {plural} of data here can be almost anything, and the code makes decisions based on it. Because it can be anything, there is always one more case to check, so no fixed number of tests can ever cover them all. Writing more tests will not fix this. The only fix is to limit what that data can be, or stop letting other parts of the code change it.
+
+## culprits.heading.cannot
+What makes it impossible
+
+## culprits.note.cannot
+Each of these is data that can be almost anything, used to make a decision. Limit it to a fixed set of values, or stop letting other code change it, and it becomes testable.
 
 ## detail.na
-Point it at a public repository with source in a language the analyzer reads (Python, TypeScript, JavaScript, Java, Go, Rust).
+Point it at a public repository with code in a language the analyzer reads (Python, TypeScript, JavaScript, Java, Go, Rust).
 
 # --- Share text -------------------------------------------------------------
 
-## share.infinite
-{slug}: fully covering it end to end would literally take an infinite number of tests. {mutable} of {total} functions read shared state that can be changed at any time from anywhere in the code. 100% coverage can still be achieved even if we test only one of these possibilities.
+## share.cannot
+{slug}: fully testing it would take an endless number of tests. Some of its data can be almost anything, and the code makes decisions on it, so no fixed set of tests can cover every case. slopaudit.org
 
-## share.finite
-{slug} passes the Slop Audit: nothing shares mutable state, so every function can be checked on its own and exhaustive testing is possible. slopaudit.org
+## share.might
+{slug} might be fully testable. Nothing in it is clearly endless, but some data gets handed to code we cannot follow. slopaudit.org
+
+## share.can
+{slug} passes the Slop Audit: none of its data can grow without limit, so a fixed number of tests can cover every case. slopaudit.org
 
 ## share.na
 I ran {slug} through the Slop Audit. slopaudit.org
@@ -65,13 +73,13 @@ I ran {slug} through the Slop Audit. slopaudit.org
 Can this code be verified?
 
 ## group.core.note
-The finite-testability indicators. These have no compliance-framework mapping on purpose: they are the ceiling on what every other control below can ever prove.
+The numbers behind the answer above. They carry no compliance tag on purpose: they set the ceiling on what every check below can ever prove.
 
 ## group.audit.title
 How it maps to your audit
 
 ## group.audit.note
-Each signal below is cross-indexed to the Slop Audit's enterprise dimensions and the compliance controls they answer to.
+Each row below is matched to the enterprise audit areas and the compliance controls they answer to.
 
 ## footer.fine
 A full Slop Audit scores all 18 enterprise compliance dimensions and produces SOC 2 evidence as a byproduct. This page runs the static Layer 1 indicators only. It never executes the repo's code.
@@ -85,7 +93,7 @@ How much depends on hidden state
 L1.18 · mutable-state ratio
 
 ## meaning.L1.18
-The share of functions whose behavior depends on state outside their inputs. Each one pulls in shared state that can be changed by another part of the code at any time, which is why this code can never be exhaustively tested. It is also the single number that predicts race conditions, order-dependent test failures, and stale-cache bugs.
+The share of functions that use data they don't own. This is the older, rougher measure, kept for comparison. The answer at the top comes from a sharper check: does that data reach a decision we cannot pin down. High numbers here still predict race conditions, flaky tests, and stale-cache bugs.
 
 ## label.L1.19
 Decisions that could be exhaustively checked
@@ -94,7 +102,7 @@ Decisions that could be exhaustively checked
 L1.19 · decision-space coverage
 
 ## meaning.L1.19
-How many finitely-enumerable decisions (dispatch keys, match arms, enum branches) exist in the code. What fraction your tests actually cover is the real L1.19 number, and it requires running your test suite, which this tool never does. Run the [CLI](https://github.com/openhonest/slop-audit) on your machines to get the coverage figure.
+How many decisions in the code (branches, lookups, and the like) could be listed and checked one by one. What share your tests actually reach is the real number, and getting it means running your test suite, which this tool never does. Run the [CLI](https://github.com/openhonest/slop-audit) on your machine for that figure.
 
 ## label.L1.15
 Escapes from the type system
@@ -156,13 +164,13 @@ Whether automated checks run before code can even be committed, the first gate t
 The Slop Audit · an open standard
 
 ## hero.title
-How many test cases would it take to exhaustively test your code?
+Can your code ever be fully tested?
 
 ## hero.sub
-Paste a public GitHub repo in one of 7 supported languages and find out. For code that allows shared mutable state, the stuff AI writes by the truckload, the answer is often <strong>infinitely many</strong>: no finite test suite can ever cover it. The Slop Audit shows you why, function by function, and cross-indexes it to the compliance dimensions your reviewers already track. Nothing is installed. We never run your code.
+Paste a link to any public GitHub repo. We tell you one of three things: it can be fully tested, it might be, or it never can, and we show you why. A lot of AI-written code keeps shared data that can be almost anything; once that is true, no amount of testing can cover every case. Nothing is installed. We never run your code.
 
 ## example.note
-Here's a real audit of our own code. Paste any public repo above to run your own.
+Here's a real result for our own code. Paste any public repo above to check yours.
 
 ## try.text
 run the example on
@@ -171,4 +179,4 @@ run the example on
 What you're looking at
 
 ## explain.body
-The headline number is the <strong>mutable-state ratio</strong>: the share of functions whose behavior depends on state they don't own. That state is what makes exhaustive testing impossible no matter how many tests you write, so it's the ceiling on everything else an audit can prove. Below it, each signal is cross-indexed to the enterprise audit dimensions and the compliance controls (SOC 2, NIST, OWASP, ISO) your reviewers already answer to.
+The top of the card is the answer: can this code be fully tested, yes, maybe, or no. Below it, each row is one thing we measured, matched to the audit checkboxes (SOC 2, NIST, OWASP, ISO) your reviewers already use.
