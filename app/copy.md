@@ -81,6 +81,9 @@ How it maps to your audit
 ## group.audit.note
 Each row below is matched to the enterprise audit areas and the compliance controls they answer to.
 
+## scoped.why
+Docs, build and test tooling, and loose entry-point scripts are not the code under test. Everything set aside is listed so you can check it.
+
 ## footer.fine
 A full Slop Audit scores all 18 enterprise compliance dimensions and produces SOC 2 evidence as a byproduct. This page runs the static Layer 1 indicators only. It never executes the repo's code.
 

@@ -110,3 +110,19 @@ def test_share_text_includes_the_slug():
     for results in (CAN, MIGHT, CANNOT):
         card = build_scorecard("owner/repo", "python", results)
         assert "owner/repo" in card["share_text"]
+
+
+def test_scoped_out_is_disclosed_when_files_were_bucketed():
+    results = dict(CANNOT)
+    results["L1.18b"] = dict(results["L1.18b"], bucketed={
+        "counts": {"docs": 2, "tests": 15, "root-script": 1},
+        "paths": [{"path": "docs/conf.py", "reason": "docs"}, {"path": "mutate.py", "reason": "root-script"}],
+    })
+    card = build_scorecard("owner/repo", "python", results)
+    assert card["scoped_out"]["total"] == 18
+    assert "docs/conf.py" in card["scoped_out"]["paths"]
+    assert "docs" in card["scoped_out"]["reasons"]
+
+
+def test_no_scoped_out_when_nothing_was_bucketed():
+    assert build_scorecard("owner/repo", "python", CAN)["scoped_out"] is None

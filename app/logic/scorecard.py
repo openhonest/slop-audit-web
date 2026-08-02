@@ -72,6 +72,7 @@ class Scorecard(TypedDict):
     culprits_note: str
     culprits: list[dict[str, Any]]   # the state that decides the verdict (per piece of state)
     culprits_more: int
+    scoped_out: dict[str, Any] | None   # files the meter excluded (docs/tooling/scripts), disclosed
     core: list[Metric]
     audit: list[Metric]
     share_text: str
@@ -170,6 +171,23 @@ def _culprits(l18b: dict[str, Any], status: str) -> tuple[list[dict[str, Any]], 
     return shown, max(0, len(flagged) - _CULPRIT_CAP)
 
 
+def _scoped_out(l18b: dict[str, Any]) -> dict[str, Any] | None:
+    """What the meter chose not to look at, surfaced so the reader can challenge it
+    (the cone of light on scope). None when nothing was bucketed."""
+    bucketed = l18b.get("bucketed", {}) if isinstance(l18b, dict) else {}
+    counts = bucketed.get("counts", {}) or {}
+    paths = [p["path"] for p in bucketed.get("paths", [])]   # docs / tooling / loose scripts
+    total = sum(counts.values())
+    if not total:
+        return None
+    return {
+        "total": total,
+        "reasons": ", ".join(f"{n} {r}" for r, n in sorted(counts.items())),
+        "paths": paths[:12],
+        "paths_more": max(0, len(paths) - 12),
+    }
+
+
 def _detail(status: str, promiscuous: int, cover: int | None) -> str:
     if status == "na":
         return text("detail.na")
@@ -216,6 +234,7 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
         "culprits_note": text(f"culprits.note.{status}") if status in _WANT else "",
         "culprits": culprits,
         "culprits_more": culprits_more,
+        "scoped_out": _scoped_out(l18b),
         "core": _metrics(_CORE, results, "core"),
         "audit": _metrics(_AUDIT, results, "audit"),
         "share_text": text(f"share.{status}", slug=slug),
