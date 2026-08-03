@@ -138,8 +138,21 @@ def _metrics(specs: tuple[dict[str, Any], ...], results: dict[str, Any], group: 
     return [_metric(spec, results[spec["key"]], group) for spec in specs if spec["key"] in results]
 
 
-def _hero_status(band: str, counts: dict[str, int]) -> str:
-    if band == "n/a":
+def _meter_ran(l18b: dict[str, Any]) -> bool:
+    """True iff the finite-testability meter produced a real result for this language.
+    classify()'s _na (a language the meter has no spec for) sets resolvable_fraction
+    to the string "n/a"; a real run sets a float. This sentinel separates "analyzed,
+    found nothing unbounded" (a legitimate green) from "never analyzed" (must be na)."""
+    return isinstance(l18b, dict) and isinstance(l18b.get("resolvable_fraction"), (int, float))
+
+
+def _hero_status(band: str, counts: dict[str, int], meter_ran: bool) -> str:
+    # NA unless the finite-testability meter itself ran. Keying this off L1.18
+    # (mutable-state, which covers more languages than the verdict meter) rendered a
+    # false green: a language the meter has no spec for scored 0 pieces of state and
+    # the card claimed "definitely CAN / 100% testable". The meter's own result is the
+    # only honest source of the verdict.
+    if not meter_ran or band == "n/a":
         return "na"
     if counts.get("promiscuous", 0) > 0:
         return "cannot"
@@ -204,7 +217,7 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     l18b = results.get("L1.18b", {})
     l18b = l18b if isinstance(l18b, dict) else {}
     counts = l18b.get("counts") or _ZERO_COUNTS
-    status = _hero_status(band, counts)
+    status = _hero_status(band, counts, _meter_ran(l18b))
     total_state = sum(counts.values())
     # Share of state that is finitely testable: 100% = fully testable, 0% = none.
     # No state at all is trivially fully testable. Undetermined counts against it.

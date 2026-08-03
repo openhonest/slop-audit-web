@@ -104,6 +104,17 @@ def _rate_limited(request: Request) -> bool:
 _EXAMPLE_RESULTS: dict[str, object] = {
     "lang": "python",
     "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/78 functions reference external mutable state (python)"},
+    # Measured: slop-audit's own code carries no promiscuous or undetermined state
+    # (pure functions, no instance state), so the meter ran and found nothing
+    # unbounded. resolvable_fraction is a float, which is what marks the meter as
+    # having actually run for this language.
+    "L1.18b": {
+        "verdict": "n/a",
+        "counts": {"neutral": 0, "promiscuous": 0, "unresolved": 0},
+        "resolvable_fraction": 1.0,
+        "findings": [],
+        "bucketed": {"counts": {"tests": 16, "vendored": 591}, "paths": []},
+    },
     "L1.19": {"value": 414, "band": "n/a"},
     "path_cover": {"value": 205, "band": "n/a"},
     "L1.15": {"value": 11.01, "band": "Slop"},

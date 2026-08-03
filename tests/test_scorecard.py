@@ -55,6 +55,20 @@ CANNOT = {
 
 NA = {"lang": "unknown", "L1.18": {"value": "n/a", "band": "n/a"}}
 
+# L1.18 (mutable-state) supports more languages than the finite-testability meter.
+# For a language the meter has no spec for, classify() returns _na (resolvable_fraction
+# is the string "n/a"). The card must read this as na, not a false green.
+METER_ABSENT = {
+    "lang": "rust",
+    "L1.18": {"value": 5.0, "band": "Healthy", "details": "1/20 functions reference external mutable state (rust)"},
+    "L1.18b": {
+        "verdict": "n/a",
+        "counts": {"neutral": 0, "promiscuous": 0, "unresolved": 0},
+        "resolvable_fraction": "n/a",
+        "findings": [],
+    },
+}
+
 
 def test_can_when_all_state_is_neutral():
     card = build_scorecard("owner/repo", "python", CAN)
@@ -91,6 +105,16 @@ def test_na_when_no_recognized_source():
     assert card["status"] == "na"
     assert card["headline"] == ""
     assert card["culprits"] == []
+
+
+def test_language_l118_scores_but_meter_lacks_spec_is_na_not_a_false_green():
+    # The bug: a rust repo rendered "definitely CAN / 100%" off L1.18's band while the
+    # meter never ran. It must be na: no verdict, no testability percentage.
+    card = build_scorecard("owner/repo", "rust", METER_ABSENT)
+    assert card["status"] == "na"
+    assert card["headline"] == ""
+    assert card["testable"] is None
+    assert card["paths"] is None
 
 
 def test_mutable_state_scalar_retained_as_secondary_number():
