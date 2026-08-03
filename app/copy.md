@@ -51,7 +51,7 @@ What makes it impossible
 Each of these is data that can be almost anything, used to make a decision. Limit it to a fixed set of values, or stop letting other code change it, and it becomes testable.
 
 ## detail.na
-Point it at a public repository with code in a language the analyzer reads (Python, TypeScript, JavaScript, Java, Go, Rust).
+Point it at a public repository with code in a language the analyzer reads: Python, TypeScript, JavaScript, Java, C#, Rust, Ruby, Go, or C.
 
 # --- Share text -------------------------------------------------------------
 
@@ -171,6 +171,9 @@ Can your code ever be fully tested?
 
 ## hero.sub
 Paste a link to any public GitHub repo. We tell you one of three things: it can be fully tested, it might be, or it never can, and we show you why. A lot of AI-written code keeps shared data that can be almost anything; once that is true, no amount of testing can cover every case. Nothing is installed. We never run your code.
+
+## hero.langs
+Reads nine languages
 
 ## example.note
 Here's a real result for our own code. Paste any public repo above to check yours.

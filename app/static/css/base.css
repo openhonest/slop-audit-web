@@ -72,6 +72,16 @@ body {
 .site-main { max-width: var(--content-max); margin: 0 auto; padding: 3rem 1.75rem; }
 
 /* --- Hero ------------------------------------------------------------------- */
+.langs-strip { margin: 0 0 1.75rem; }
+.langs__label { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.55rem; }
+.langs { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 0.45rem; }
+.lang {
+  font-family: var(--mono); font-size: 0.72rem; font-weight: 600; line-height: 1; white-space: nowrap;
+  padding: 0.35rem 0.62rem; border-radius: 999px;
+  color: var(--lang);
+  border: 1px solid color-mix(in srgb, var(--lang) 38%, transparent);
+  background: color-mix(in srgb, var(--lang) 8%, var(--surface));
+}
 .hero__kicker { font-family: var(--mono); text-transform: none; letter-spacing: 0.06em; font-size: 0.78rem; color: var(--text-muted); margin: 0 0 1rem; }
 .hero__title { font-size: 2rem; line-height: 1.2; letter-spacing: -0.01em; font-weight: 700; margin: 0 0 1.1rem; }
 .hero__sub { color: var(--text-dim); font-size: 1.05rem; margin: 0 0 1.75rem; }
