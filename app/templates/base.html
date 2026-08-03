@@ -5,6 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Slop Audit{% endblock %}</title>
   <meta name="description" content="Paste a public GitHub repo and see how much of it is structurally impossible to verify through testing. The hosted Slop Audit, an open standard for measuring software verifiability.">
+  <link rel="canonical" href="https://try.slopaudit.org/">
+
+  {# Social share card. Sibling to slopaudit.org's; the image is generated from
+     scripts/og-image.html. Absolute URLs: crawlers do not resolve relative ones. #}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Slop Audit">
+  <meta property="og:title" content="Slop Audit: can your code ever be fully tested?">
+  <meta property="og:description" content="Paste a link to any public GitHub repo and find out whether it can be exhaustively tested, might be, or never can, and why. Nothing is installed. Your code is never run.">
+  <meta property="og:url" content="https://try.slopaudit.org/">
+  <meta property="og:image" content="https://try.slopaudit.org/static/img/og.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Can your code ever be fully tested? The hosted Slop Audit returns one of three answers: CAN, MIGHT, or CANNOT.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Slop Audit: can your code ever be fully tested?">
+  <meta name="twitter:description" content="Paste a link to any public GitHub repo and find out whether it can be exhaustively tested, might be, or never can. Nothing installed. Your code is never run.">
+  <meta name="twitter:image" content="https://try.slopaudit.org/static/img/og.png">
+  <meta name="twitter:image:alt" content="Can your code ever be fully tested? One of three answers: CAN, MIGHT, or CANNOT.">
+
   <link rel="stylesheet" href="/static/css/base.css">
   {% block head %}{% endblock %}
 </head>

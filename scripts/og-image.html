@@ -1,0 +1,165 @@
+<!--
+  Source for app/static/img/og.png — the social-share card for try.slopaudit.org.
+  Sibling to slopaudit.org/img/slopaudit-og.png: same dark ground, same mono/serif
+  pairing, same green rule. The right column carries the tool's actual output, the
+  three verdicts, instead of the standard's dot grid.
+
+  Regenerate after a copy change:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+      --headless --disable-gpu --hide-scrollbars --window-size=1200,630 \
+      --screenshot=app/static/img/og.png --default-background-color=0 \
+      scripts/og-image.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1200px; height: 630px; }
+
+  body {
+    background: #0d1411;
+    background-image:
+      radial-gradient(900px 620px at 88% 42%, rgba(22, 163, 74, 0.30), transparent 62%),
+      radial-gradient(600px 500px at 4% 96%, rgba(22, 163, 74, 0.09), transparent 70%);
+    color: #ece8dc;
+    font-family: 'DejaVu Sans Mono', Menlo, monospace;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 54px 66px 48px;
+  }
+
+  .body { flex: 1; display: flex; }
+
+  /* --- Left column: the message ------------------------------------------- */
+  .main { flex: 1; display: flex; flex-direction: column; }
+
+  .kicker {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.42em;
+    color: #34d17d;
+  }
+
+  .title {
+    font-size: 71px;
+    font-weight: 700;
+    line-height: 1.14;
+    letter-spacing: -0.015em;
+    margin-top: 34px;
+  }
+
+  .rule {
+    width: 152px;
+    height: 9px;
+    background: #16a34a;
+    margin: 30px 0 26px;
+  }
+
+  .sub {
+    font-family: Georgia, 'DejaVu Serif', serif;
+    font-size: 30px;
+    line-height: 1.36;
+    color: #cfd6cf;
+  }
+
+  /* --- Right column: the three verdicts ------------------------------------ */
+  .verdicts {
+    width: 292px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-left: 46px;
+  }
+
+  .verdict {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 34px;
+  }
+
+  .verdict:last-child { margin-bottom: 0; }
+
+  .dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .dot--can    { background: #22c55e; box-shadow: 0 0 22px rgba(34, 197, 94, 0.55); }
+  .dot--might  { background: #d9a520; box-shadow: 0 0 22px rgba(217, 165, 32, 0.40); }
+  .dot--cannot { background: #e2503f; box-shadow: 0 0 22px rgba(226, 80, 63, 0.40); }
+
+  .verdict span {
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+  }
+
+  .verdict--can span    { color: #eae6da; }
+  .verdict--might span  { color: #b7bab0; }
+  .verdict--cannot span { color: #b7bab0; }
+
+  /* --- Footer: domain left, balancing line right (mirrors the sibling card) - */
+  .footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 40px;
+  }
+
+  .domain {
+    font-size: 24px;
+    letter-spacing: 0.02em;
+    color: #8d968f;
+  }
+
+  .footer__note {
+    font-family: Georgia, 'DejaVu Serif', serif;
+    font-style: italic;
+    font-size: 25px;
+    color: #9aa39b;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="body">
+      <div class="main">
+        <p class="kicker">OPEN HONEST FOUNDATION</p>
+        <h1 class="title">Can your code<br>ever be fully<br>tested?</h1>
+        <div class="rule"></div>
+        <p class="sub">Paste any public GitHub repo.<br>Get the answer in seconds.</p>
+      </div>
+
+      <div class="verdicts">
+        <div class="verdict verdict--can">
+          <div class="dot dot--can"></div><span>CAN</span>
+        </div>
+        <div class="verdict verdict--might">
+          <div class="dot dot--might"></div><span>MIGHT</span>
+        </div>
+        <div class="verdict verdict--cannot">
+          <div class="dot dot--cannot"></div><span>CANNOT</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p class="domain">try.slopaudit.org</p>
+      <p class="footer__note">Nothing installed. Your code never runs.</p>
+    </div>
+  </div>
+</body>
+</html>
