@@ -20,7 +20,7 @@ dependencies = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0",
-    "slop-audit-l1 @ git+https://github.com/openhonest/slop-audit.git@355c9e43831106746ce3daf0c33960d260c5e076#subdirectory=tools/l1_analyzer",
+    "slop-audit-l1 @ git+https://github.com/openhonest/slop-audit.git@edf8d13cac278ae8a37b1b2282fbb76c5f2c0fc3#subdirectory=tools/l1_analyzer",
 ]
 
 [project.optional-dependencies]
