@@ -28,11 +28,18 @@
     <div>
       <p class="card__eyebrow">Slop Audit result</p>
       <h2 class="card__slug">{{ card.slug }}</h2>
+      <span class="card__lang">{{ card.lang }}</span>
     </div>
-    <span class="card__lang">{{ card.lang }}</span>
+    {% if card.grade %}
+    <div class="grade grade--{{ card.status }}">
+      <span class="grade__letter">{{ card.grade }}</span>
+      <span class="grade__pct">{{ card.grade_pct }}% testable</span>
+    </div>
+    {% endif %}
   </header>
 
   <p class="card__question">{{ card.question }}</p>
+  {% if card.grade %}<p class="grade__rubric">{{ copy['grade.rubric'] | safe }}</p>{% endif %}
 
   {% if card.status == 'na' %}
   <div class="verdict verdict--na">

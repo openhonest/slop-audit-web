@@ -57,6 +57,8 @@ class Scorecard(TypedDict):
     lang: str
     question: str
     status: str          # "can" | "might" | "cannot" | "na"
+    grade: str | None    # single headline letter: A/B/C (CAN), D (MIGHT), F (CANNOT); None for na
+    grade_pct: int | None   # the finitely-testable share behind the grade, e.g. 72
     headline: str        # the green/yellow/red sentence
     detail: str
     paths: int | None    # "can" only: fewest runs that walk every reachable branch
@@ -201,6 +203,45 @@ def _scoped_out(l18b: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+# Weighted importance of the audit indicators for the passing tier (CAN -> A/B/C).
+# PUBLISHED, not hidden (the whole point vs opaque security ratings): god-files and
+# type-escapes are the strongest AI-slop / discipline smells, then verification gates,
+# then reproducibility and formatting. Tune these in the open, in this table.
+_HYGIENE_WEIGHTS = {"L1.17": 3, "L1.15": 3, "L1.10": 2, "L1.11": 1, "L1.9": 1, "L1.16": 1}
+_BAND_POINTS = {"Healthy": 1.0, "Not Healthy": 0.5, "Slop": 0.0}
+_A_MIN, _B_MIN = 0.85, 0.60
+
+
+def _hygiene_score(results: dict[str, Any]) -> float | None:
+    """Weighted health of the audit indicators, 0..1. An indicator with no band (n/a
+    or not computed) is excluded, not counted against the repo. None if none ran."""
+    num = den = 0.0
+    for key, weight in _HYGIENE_WEIGHTS.items():
+        points = _BAND_POINTS.get(str(results.get(key, {}).get("band")))
+        if points is None:
+            continue
+        num += weight * points
+        den += weight
+    return (num / den) if den else None
+
+
+def _grade(status: str, pct: int | None, hygiene: float | None) -> str | None:
+    """The single headline grade, verifiability-first, by a published rule. The
+    finite-testability verdict sets the tier: CANNOT (provably unbounded state) is a
+    categorical F; MIGHT (undetermined, not proven bad) a D. Within the passing tier
+    (CAN - every piece of state finitely testable), A/B/C is the weighted health of the
+    audit indicators, so a fully-testable repo with poor hygiene lands below A."""
+    if status == "na" or pct is None:
+        return None
+    if status == "cannot":
+        return "F"
+    if status == "might":
+        return "D"
+    if hygiene is None:
+        return "A"
+    return "A" if hygiene >= _A_MIN else "B" if hygiene >= _B_MIN else "C"
+
+
 def _detail(status: str, promiscuous: int, cover: int | None) -> str:
     if status == "na":
         return text("detail.na")
@@ -221,7 +262,9 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     total_state = sum(counts.values())
     # Share of state that is finitely testable: 100% = fully testable, 0% = none.
     # No state at all is trivially fully testable. Undetermined counts against it.
-    testable = None if status == "na" else f"{100 if total_state == 0 else round(counts.get('neutral', 0) / total_state * 100)}%"
+    pct = None if status == "na" else (100 if total_state == 0 else round(counts.get("neutral", 0) / total_state * 100))
+    testable = None if pct is None else f"{pct}%"
+    grade = _grade(status, pct, _hygiene_score(results))
 
     pc = results.get("path_cover", {})
     cover = pc.get("value") if isinstance(pc.get("value"), int) else None
@@ -236,6 +279,8 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
         "lang": lang,
         "question": text("question"),
         "status": status,
+        "grade": grade,
+        "grade_pct": pct,
         "headline": "" if status == "na" else text(f"headline.{status}"),
         "detail": _detail(status, promiscuous, cover),
         "paths": cover if status == "can" else None,

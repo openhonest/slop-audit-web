@@ -103,7 +103,7 @@ def _rate_limited(request: Request) -> bool:
 # genuine measured values (openhonest/slop-audit), not fabricated illustration.
 _EXAMPLE_RESULTS: dict[str, object] = {
     "lang": "python",
-    "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/78 functions reference external mutable state (python)"},
+    "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/148 functions reference external mutable state (python)"},
     # Measured: slop-audit's own code carries no promiscuous or undetermined state
     # (pure functions, no instance state), so the meter ran and found nothing
     # unbounded. resolvable_fraction is a float, which is what marks the meter as
@@ -115,9 +115,9 @@ _EXAMPLE_RESULTS: dict[str, object] = {
         "findings": [],
         "bucketed": {"counts": {"tests": 16, "vendored": 591}, "paths": []},
     },
-    "L1.19": {"value": 414, "band": "n/a"},
+    "L1.19": {"value": 790, "band": "n/a"},
     "path_cover": {"value": 205, "band": "n/a"},
-    "L1.15": {"value": 11.01, "band": "Slop"},
+    "L1.15": {"value": 3.45, "band": "Not Healthy", "details": "14 escapes in ~4kLOC"},
     "L1.17": {"value": 0.0, "band": "Healthy"},
     "L1.16": {"value": 0.0, "band": "Healthy"},
     "L1.10": {"value": 1, "band": "Not Healthy"},

@@ -70,6 +70,35 @@ METER_ABSENT = {
 }
 
 
+def test_grade_gates_the_tier_on_the_verdict():
+    # MIGHT -> D and CANNOT -> F regardless of hygiene; na -> no grade. The % rides along.
+    assert build_scorecard("o/r", "python", MIGHT)["grade"] == "D"
+    assert build_scorecard("o/r", "python", CANNOT)["grade"] == "F"
+    assert build_scorecard("o/r", "unknown", NA)["grade"] is None
+    assert build_scorecard("o/r", "python", MIGHT)["grade_pct"] == 62       # 5 neutral / 8 total
+    assert build_scorecard("o/r", "python", CANNOT)["grade_pct"] == 57      # 4 neutral / 7 total
+
+
+def test_hygiene_score_is_a_published_weighted_average_of_the_audit_bands():
+    from app.logic.scorecard import _hygiene_score
+    all_healthy = {k: {"band": "Healthy"} for k in ("L1.17", "L1.15", "L1.10", "L1.11", "L1.9", "L1.16")}
+    assert _hygiene_score(all_healthy) == 1.0
+    # one heavy indicator (L1.15, weight 3 of 11) at Slop -> 8/11
+    assert round(_hygiene_score({**all_healthy, "L1.15": {"band": "Slop"}}), 3) == round(8 / 11, 3)
+    # an indicator with no band is excluded, not penalized
+    assert _hygiene_score({"L1.17": {"band": "Healthy"}, "L1.15": {"band": "n/a"}}) == 1.0
+    assert _hygiene_score({}) is None
+
+
+def test_passing_tier_grades_A_B_C_by_weighted_hygiene():
+    from app.logic.scorecard import _grade
+    assert _grade("can", 100, 1.0) == "A"      # fully testable + clean hygiene
+    assert _grade("can", 100, 0.85) == "A"
+    assert _grade("can", 100, 0.72) == "B"     # fully testable but some hygiene slop
+    assert _grade("can", 100, 0.45) == "C"     # fully testable, poor hygiene
+    assert _grade("can", 100, None) == "A"     # no hygiene signal -> top of tier
+
+
 def test_can_when_all_state_is_neutral():
     card = build_scorecard("owner/repo", "python", CAN)
     assert card["status"] == "can"

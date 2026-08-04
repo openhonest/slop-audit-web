@@ -8,6 +8,9 @@ them to a single string. Changes take effect on the next app start.
 ## question
 Can this code ever be fully tested?
 
+## grade.rubric
+The grade is verifiability first, by a rule we publish rather than hide. The verdict sets the tier: <strong>CANNOT &rarr; F</strong> (some state is provably unbounded, so no finite test suite covers it), <strong>MIGHT &rarr; D</strong> (some state is undetermined). When every piece of state is finitely testable, the audit checks below decide <strong>A, B, or C</strong> by weighted health &mdash; god-files and type-escapes weigh most (3 each), then CI (2), then containers, pre-commit, and formatting (1 each). The number is the share of state that is finitely testable. No hidden weights.
+
 ## label.practical
 test runs cover every path through the code, both sides of every yes-or-no. This is the whole list you would work through.
 
