@@ -164,6 +164,26 @@ L1.9 · pre-commit hooks
 ## meaning.L1.9
 Whether automated checks run before code can even be committed, the first gate that catches AI output before a human ever sees it.
 
+# --- Thread-safety surface --------------------------------------------------
+
+## thread.heading
+Thread-safety surface
+
+## thread.blurb.exposed
+Places where the compiler's thread-safety guarantee is overridden by hand or absent, with no visible guard: {exposed}. Each is a site to verify under free-threading, not a proven race. Removing the GIL turns state that was serialized by accident into state that runs at the same time.
+
+## thread.blurb.review
+No hand-overrides of the thread-safety guarantee. Lower-severity footguns worth a look (relaxed atomic ordering, mutable default arguments, shared state that sits behind a lock we could not tie to it): {review}.
+
+## thread.blurb.clean
+No concurrency escape hatches found. Nothing overrides or bypasses the language's own thread-safety guarantee.
+
+## thread.blurb.na
+Not analyzed for {lang} yet. The surface meter currently reads Rust and Python; other languages fall back to no result rather than a guess.
+
+## thread.note
+This measures audit surface, not races. It shows where a language's thread-safety guarantee is overridden or missing, so a human or a runtime tool knows where to look. It does not detect data races: that needs [ThreadSanitizer](https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html#threadsanitizer) or an equivalent at runtime. A site here means "verify this", never "a race exists".
+
 # --- Landing page -----------------------------------------------------------
 
 ## hero.kicker

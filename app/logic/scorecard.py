@@ -78,6 +78,7 @@ class Scorecard(TypedDict):
     scoped_out: dict[str, Any] | None   # files the meter excluded (docs/tooling/scripts), disclosed
     core: list[Metric]
     audit: list[Metric]
+    thread_surface: dict[str, Any] | None   # concurrency audit surface; reported, not (yet) graded
     share_text: str
 
 
@@ -242,6 +243,57 @@ def _grade(status: str, pct: int | None, hygiene: float | None) -> str | None:
     return "A" if hygiene >= _A_MIN else "B" if hygiene >= _B_MIN else "C"
 
 
+# Thread-safety SURFACE dimension. Reported on its own, deliberately NOT folded into
+# the letter grade yet: the raw count of hand-overrides is "large audit surface", not
+# "bad" (unsafe impl Send/Sync is necessary and correct in most systems code), so it
+# must be normalized against a corpus before it can move a grade. Structural kind
+# labels live here; the verdict prose lives in copy.md.
+_THREAD_CAP = 12
+_THREAD_KINDS = {
+    "unsafe_impl_send": "unsafe impl Send",
+    "unsafe_impl_sync": "unsafe impl Sync",
+    "static_mut": "static mut",
+    "relaxed_ordering": "Ordering::Relaxed",
+    "mutable_default_arg": "mutable default arg",
+    "unguarded_shared_state": "shared state, no lock in file",
+    "possibly_unguarded_shared_state": "shared state, lock present",
+}
+
+
+def _thread_surface(lang: str, results: dict[str, Any]) -> dict[str, Any] | None:
+    """The concurrency audit surface as a view model. A finding is a site to verify,
+    never a race verdict; the note the template renders says so in plain sight."""
+    ts = results.get("thread_surface")
+    if not isinstance(ts, dict):
+        return None
+    verdict = str(ts.get("verdict", "n/a"))
+    counts = ts.get("counts") or {}
+    exposed, review = counts.get("exposed", 0), counts.get("review", 0)
+    if verdict == "n/a":
+        blurb = text("thread.blurb.na", lang=lang)
+    else:
+        blurb = text(f"thread.blurb.{verdict}", exposed=str(exposed), review=str(review))
+    findings = ts.get("findings") if isinstance(ts.get("findings"), list) else []
+    sites = [
+        {
+            "file": f.get("file", ""),
+            "line": f.get("line", 0),
+            "kind": _THREAD_KINDS.get(f.get("kind", ""), f.get("kind", "")),
+            "symbol": f.get("symbol", ""),
+            "severity": f.get("severity", ""),
+        }
+        for f in findings[:_THREAD_CAP]
+    ]
+    return {
+        "verdict": verdict,
+        "exposed": exposed,
+        "review": review,
+        "blurb": blurb,
+        "sites": sites,
+        "sites_more": max(0, len(findings) - _THREAD_CAP),
+    }
+
+
 def _detail(status: str, promiscuous: int, cover: int | None) -> str:
     if status == "na":
         return text("detail.na")
@@ -300,5 +352,6 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
         "scoped_out": _scoped_out(l18b),
         "core": _metrics(_CORE, results, "core"),
         "audit": _metrics(_AUDIT, results, "audit"),
+        "thread_surface": _thread_surface(lang, results),
         "share_text": text(f"share.{status}", slug=slug),
     }

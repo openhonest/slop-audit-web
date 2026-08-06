@@ -186,3 +186,54 @@ def test_testable_percentage_is_the_share_of_finitely_testable_state():
     assert build_scorecard("owner/repo", "python", CAN)["testable"] == "100%"       # 8 of 8
     assert build_scorecard("owner/repo", "python", CANNOT)["testable"] == "57%"      # 4 of 7
     assert build_scorecard("owner/repo", "python", NA)["testable"] is None
+
+
+# --- Thread-safety surface dimension ---------------------------------------
+
+def _base(**extra):
+    r = {
+        "lang": "rust",
+        "L1.18": {"value": 5.0, "band": "Healthy"},
+        "L1.18b": _l18b(neutral=4, resolvable=1.0),
+        "L1.19": {"value": 3, "band": "n/a"},
+        "path_cover": {"value": 2, "band": "n/a"},
+    }
+    r.update(extra)
+    return r
+
+
+def test_thread_surface_exposed_is_reported_not_graded():
+    results = _base(thread_surface={
+        "verdict": "exposed",
+        "counts": {"exposed": 2, "review": 1},
+        "findings": [
+            {"kind": "unsafe_impl_sync", "symbol": "Coord", "severity": "exposed", "file": "wal.rs", "line": 699},
+            {"kind": "static_mut", "symbol": "G", "severity": "exposed", "file": "g.rs", "line": 3},
+            {"kind": "relaxed_ordering", "symbol": "Ordering::Relaxed", "severity": "review", "file": "wal.rs", "line": 327},
+        ],
+    })
+    card = build_scorecard("o/r", "rust", results)
+    ts = card["thread_surface"]
+    assert ts is not None
+    assert ts["verdict"] == "exposed"
+    assert ts["exposed"] == 2 and ts["review"] == 1
+    # Kind label is humanized, not the raw slug.
+    assert ts["sites"][0]["kind"] == "unsafe impl Sync"
+    # Reported, but it must NOT move the letter grade (verifiability-only for now).
+    baseline = build_scorecard("o/r", "rust", _base())["grade"]
+    assert card["grade"] == baseline
+
+
+def test_thread_surface_absent_when_meter_did_not_run():
+    # No thread_surface key (e.g. a language with no scanner, or frozen mode).
+    card = build_scorecard("o/r", "rust", _base())
+    assert card["thread_surface"] is None
+
+
+def test_thread_surface_na_language_blurb():
+    card = build_scorecard("o/r", "java", _base(
+        lang="java",
+        thread_surface={"verdict": "n/a", "counts": {"exposed": 0, "review": 0}, "findings": []},
+    ))
+    assert card["thread_surface"]["verdict"] == "n/a"
+    assert "java" in card["thread_surface"]["blurb"]

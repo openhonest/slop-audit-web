@@ -123,6 +123,9 @@ _EXAMPLE_RESULTS: dict[str, object] = {
     "L1.10": {"value": 1, "band": "Not Healthy"},
     "L1.11": {"value": "absent", "band": "Slop"},
     "L1.9": {"value": "present", "band": "Healthy"},
+    # Measured: slop-audit's own code is pure-functional, imports no threading, and
+    # keeps no module-level mutable containers, so the concurrency surface is empty.
+    "thread_surface": {"verdict": "clean", "counts": {"exposed": 0, "review": 0}, "findings": [], "bucketed": {"counts": {}, "paths": []}},
 }
 
 

@@ -101,6 +101,29 @@
   </section>
   {% endif %}
 
+  {% if card.thread_surface %}
+  <section class="thread thread--{{ card.thread_surface.verdict }}">
+    <h3 class="thread__title">
+      {{ copy['thread.heading'] }}
+      <span class="thread__verdict thread__verdict--{{ card.thread_surface.verdict }}">{{ card.thread_surface.verdict }}</span>
+    </h3>
+    <p class="thread__blurb">{{ card.thread_surface.blurb | safe }}</p>
+    {% if card.thread_surface.sites %}
+    <ul class="thread__list">
+      {% for s in card.thread_surface.sites %}
+      <li class="thread__site thread__site--{{ s.severity }}">
+        <code class="thread__loc">{{ s.file }}:{{ s.line }}</code>
+        <span class="thread__kind">{{ s.kind }}</span>
+        {% if s.symbol %}<span class="thread__sym">{{ s.symbol }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if card.thread_surface.sites_more %}<p class="thread__more">and {{ card.thread_surface.sites_more }} more</p>{% endif %}
+    {% endif %}
+    <p class="thread__note">{{ copy['thread.note'] | safe }}</p>
+  </section>
+  {% endif %}
+
   {% if card.scoped_out %}
   <p class="scoped">Scoped out of this audit: {{ card.scoped_out.total }} file{{ 's' if card.scoped_out.total != 1 }} not part of the library ({{ card.scoped_out.reasons }}){% if card.scoped_out.paths %}, including <span class="scoped__paths">{{ card.scoped_out.paths | join(', ') }}{% if card.scoped_out.paths_more %} +{{ card.scoped_out.paths_more }} more{% endif %}</span>{% endif %}. {{ copy['scoped.why'] }}</p>
   {% endif %}
