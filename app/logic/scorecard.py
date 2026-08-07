@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from l1_analyzer.report import grade_summary
+
 from app.copy import text
 
 _ZERO_COUNTS = {"neutral": 0, "promiscuous": 0, "unresolved": 0}
@@ -141,29 +143,6 @@ def _metrics(specs: tuple[dict[str, Any], ...], results: dict[str, Any], group: 
     return [_metric(spec, results[spec["key"]], group) for spec in specs if spec["key"] in results]
 
 
-def _meter_ran(l18b: dict[str, Any]) -> bool:
-    """True iff the finite-testability meter produced a real result for this language.
-    classify()'s _na (a language the meter has no spec for) sets resolvable_fraction
-    to the string "n/a"; a real run sets a float. This sentinel separates "analyzed,
-    found nothing unbounded" (a legitimate green) from "never analyzed" (must be na)."""
-    return isinstance(l18b, dict) and isinstance(l18b.get("resolvable_fraction"), (int, float))
-
-
-def _hero_status(band: str, counts: dict[str, int], meter_ran: bool) -> str:
-    # NA unless the finite-testability meter itself ran. Keying this off L1.18
-    # (mutable-state, which covers more languages than the verdict meter) rendered a
-    # false green: a language the meter has no spec for scored 0 pieces of state and
-    # the card claimed "definitely CAN / 100% testable". The meter's own result is the
-    # only honest source of the verdict.
-    if not meter_ran or band == "n/a":
-        return "na"
-    if counts.get("promiscuous", 0) > 0:
-        return "cannot"
-    if counts.get("unresolved", 0) > 0:
-        return "might"
-    return "can"
-
-
 def _culprits(l18b: dict[str, Any], status: str) -> tuple[list[dict[str, Any]], int]:
     """The state that decides the verdict, per piece of state (class/module scope).
     For 'cannot' the provably-unbounded (promiscuous) state; for 'might' the
@@ -204,43 +183,9 @@ def _scoped_out(l18b: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-# Weighted importance of the audit indicators for the passing tier (CAN -> A/B/C).
-# PUBLISHED, not hidden (the whole point vs opaque security ratings): god-files and
-# type-escapes are the strongest AI-slop / discipline smells, then verification gates,
-# then reproducibility and formatting. Tune these in the open, in this table.
-_HYGIENE_WEIGHTS = {"L1.17": 3, "L1.15": 3, "L1.10": 2, "L1.11": 1, "L1.9": 1, "L1.16": 1}
-_BAND_POINTS = {"Healthy": 1.0, "Not Healthy": 0.5, "Slop": 0.0}
-_A_MIN, _B_MIN = 0.85, 0.60
-
-
-def _hygiene_score(results: dict[str, Any]) -> float | None:
-    """Weighted health of the audit indicators, 0..1. An indicator with no band (n/a
-    or not computed) is excluded, not counted against the repo. None if none ran."""
-    num = den = 0.0
-    for key, weight in _HYGIENE_WEIGHTS.items():
-        points = _BAND_POINTS.get(str(results.get(key, {}).get("band")))
-        if points is None:
-            continue
-        num += weight * points
-        den += weight
-    return (num / den) if den else None
-
-
-def _grade(status: str, pct: int | None, hygiene: float | None) -> str | None:
-    """The single headline grade, verifiability-first, by a published rule. The
-    finite-testability verdict sets the tier: CANNOT (provably unbounded state) is a
-    categorical F; MIGHT (undetermined, not proven bad) a D. Within the passing tier
-    (CAN - every piece of state finitely testable), A/B/C is the weighted health of the
-    audit indicators, so a fully-testable repo with poor hygiene lands below A."""
-    if status == "na" or pct is None:
-        return None
-    if status == "cannot":
-        return "F"
-    if status == "might":
-        return "D"
-    if hygiene is None:
-        return "A"
-    return "A" if hygiene >= _A_MIN else "B" if hygiene >= _B_MIN else "C"
+# The grade rule (weights, band points, A/B/C thresholds) now lives in the engine, at
+# l1_analyzer.report.grade_summary - the single source shared with the CLI report. The
+# published rubric TEXT still lives in copy.md (grade.rubric) for the card.
 
 
 # Thread-safety SURFACE dimension. Reported on its own, deliberately NOT folded into
@@ -310,13 +255,11 @@ def build_scorecard(slug: str, lang: str, results: dict[str, Any]) -> Scorecard:
     l18b = results.get("L1.18b", {})
     l18b = l18b if isinstance(l18b, dict) else {}
     counts = l18b.get("counts") or _ZERO_COUNTS
-    status = _hero_status(band, counts, _meter_ran(l18b))
-    total_state = sum(counts.values())
-    # Share of state that is finitely testable: 100% = fully testable, 0% = none.
-    # No state at all is trivially fully testable. Undetermined counts against it.
-    pct = None if status == "na" else (100 if total_state == 0 else round(counts.get("neutral", 0) / total_state * 100))
+    # Grade, verdict, and finitely-testable share come from the engine's grade_summary -
+    # the single source of the published A-F rule, shared with the CLI report.
+    g = grade_summary(results)
+    status, pct, grade = g["status"], g["testable_pct"], g["grade"]
     testable = None if pct is None else f"{pct}%"
-    grade = _grade(status, pct, _hygiene_score(results))
 
     pc = results.get("path_cover", {})
     cover = pc.get("value") if isinstance(pc.get("value"), int) else None
