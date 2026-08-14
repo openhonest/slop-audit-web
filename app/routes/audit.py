@@ -101,9 +101,14 @@ def _rate_limited(request: Request) -> bool:
 # A real, captured audit of our own repo, shown on the landing page so a first-
 # time visitor sees what the tool produces before typing anything. These are
 # genuine measured values (openhonest/slop-audit), not fabricated illustration.
+#
+# Re-capture it when the analyzer's counting rules change, or the page shows numbers
+# the live tool no longer produces. Captured 2026-08-14 against the analyzer at the
+# commit this app pins, with:
+#   uv run l1-analyzer <slop-audit> --no-exec --format json --lang python
 _EXAMPLE_RESULTS: dict[str, object] = {
     "lang": "python",
-    "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/148 functions reference external mutable state (python)"},
+    "L1.18": {"value": 0.0, "band": "Healthy", "details": "0/415 functions reference external mutable state (python)"},
     # Measured: slop-audit's own code carries no promiscuous or undetermined state
     # (pure functions, no instance state), so the meter ran and found nothing
     # unbounded. resolvable_fraction is a float, which is what marks the meter as
@@ -113,19 +118,21 @@ _EXAMPLE_RESULTS: dict[str, object] = {
         "counts": {"neutral": 0, "promiscuous": 0, "unresolved": 0},
         "resolvable_fraction": 1.0,
         "findings": [],
-        "bucketed": {"counts": {"tests": 22, "vendored": 591}, "paths": []},
+        "bucketed": {"counts": {"tests": 48, "vendored": 1966}, "paths": []},
     },
-    "L1.19": {"value": 790, "band": "n/a"},
-    "path_cover": {"value": 360, "band": "n/a"},
-    "L1.15": {"value": 3.45, "band": "Not Healthy", "details": "14 escapes in ~4kLOC"},
+    "L1.19": {"value": 2017, "band": "n/a"},
+    "path_cover": {"value": 930, "band": "n/a", "functions": 415},
+    "L1.15": {"value": 0.0, "band": "Healthy", "details": "0 escapes in ~9kLOC"},
     "L1.17": {"value": 0.0, "band": "Healthy"},
     "L1.16": {"value": 0.0, "band": "Healthy"},
-    "L1.10": {"value": 1, "band": "Not Healthy"},
-    "L1.11": {"value": "absent", "band": "Slop"},
+    "L1.10": {"value": 5, "band": "Healthy"},
+    "L1.11": {"value": "present and parameterized", "band": "Healthy"},
     "L1.9": {"value": "present", "band": "Healthy"},
     # Measured: slop-audit's own code is pure-functional, imports no threading, and
     # keeps no module-level mutable containers, so the concurrency surface is empty.
-    "thread_surface": {"verdict": "clean", "counts": {"exposed": 0, "review": 0}, "findings": [], "bucketed": {"counts": {}, "paths": []}},
+    "thread_surface": {"verdict": "clean", "value": "0 exposed / 0 review / 0 candidate", "band": "n/a",
+                       "counts": {"exposed": 0, "review": 0, "candidate": 0}, "findings": [],
+                       "bucketed": {"counts": {}, "paths": []}},
 }
 
 

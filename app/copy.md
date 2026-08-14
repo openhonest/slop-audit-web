@@ -88,7 +88,7 @@ Each row below is matched to the enterprise audit areas and the compliance contr
 Docs, build and test tooling, and loose entry-point scripts are not the code under test. Everything set aside is listed so you can check it.
 
 ## footer.fine
-A full Slop Audit scores all 18 enterprise compliance dimensions and produces SOC 2 evidence as a byproduct. This page runs the static Layer 1 indicators only. It never executes the repo's code.
+A full Slop Audit scores all 18 enterprise compliance dimensions and produces SOC 2 evidence as a byproduct. This page runs the static Layer 1 indicators only, and never executes the repo's code. That costs two of the twenty indicators: L1.19 shows how many decisions exist, not what share your tests reach, and L1.20, test determinism, is not shown at all. So this grade answers whether the code <strong>can</strong> be exhaustively verified, which is a property of how it is built, and not whether it <strong>is</strong> verified, which is a property of your test suite. A repository with no tests at all can score well here. Run the [CLI](https://github.com/openhonest/slop-audit) to answer the other half.
 
 # --- Metric names and plain-language meanings -------------------------------
 
