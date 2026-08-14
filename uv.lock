@@ -552,7 +552,7 @@ wheels = [
 [[package]]
 name = "slop-audit-l1"
 version = "0.1.0"
-source = { git = "https://github.com/openhonest/slop-audit.git?subdirectory=tools%2Fl1_analyzer&rev=0765b5f18214abb64054487afb109dc9fcf2722b#0765b5f18214abb64054487afb109dc9fcf2722b" }
+source = { git = "https://github.com/openhonest/slop-audit.git?subdirectory=tools%2Fl1_analyzer&rev=bef5bdbe1037d952fb9f35782ce5c0dc654b5985#bef5bdbe1037d952fb9f35782ce5c0dc654b5985" }
 dependencies = [
     { name = "jinja2" },
     { name = "tree-sitter" },
@@ -598,7 +598,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
-    { name = "slop-audit-l1", git = "https://github.com/openhonest/slop-audit.git?subdirectory=tools%2Fl1_analyzer&rev=0765b5f18214abb64054487afb109dc9fcf2722b" },
+    { name = "slop-audit-l1", git = "https://github.com/openhonest/slop-audit.git?subdirectory=tools%2Fl1_analyzer&rev=bef5bdbe1037d952fb9f35782ce5c0dc654b5985" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
 ]
 provides-extras = ["dev"]
