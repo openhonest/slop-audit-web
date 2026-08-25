@@ -1,9 +1,6 @@
 # Slop Audit card copy
 
-Edit the text under any `## key` heading to change what the page says. Words in
-{braces} are fill-ins the code supplies (a number, a slug); leave them in place.
-Each section is one paragraph; wrap the lines however you like, the app collapses
-them to a single string. Changes take effect on the next app start.
+Edit the text under any `## key` heading to change what the page says. Words in {braces} are fill-ins the code supplies (a number, a slug); leave them in place. Each section is one paragraph; wrap the lines however you like, the app collapses them to a single string. Changes take effect on the next app start.
 
 ## question
 Can this code ever be fully tested?
