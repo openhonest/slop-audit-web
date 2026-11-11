@@ -17,6 +17,7 @@ import shutil
 import time
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
@@ -25,6 +26,8 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.copy import COPY
+from app.logic.audit_log import build_audit_event
+from app.logic.cache import cache_entry, cached_result
 from app.logic.guards import evaluate_rate_limit
 from app.logic.repo import parse_github_url
 from app.logic.scorecard import build_scorecard
@@ -35,6 +38,7 @@ from app.services import (
     analyze_source,
     check_repo_size,
     clone_repo,
+    log_audit_event,
 )
 
 router = APIRouter()
@@ -98,6 +102,38 @@ def _rate_limited(request: Request) -> bool:
     return not decision["allowed"]
 
 
+def _elapsed_ms(started_at: float) -> float:
+    return (time.monotonic() - started_at) * 1000
+
+
+def _log_event(
+    request: Request,
+    *,
+    endpoint: str,
+    url: str,
+    slug: str | None,
+    outcome: str,
+    cache_hit: bool,
+    duration_ms: float | None,
+    error: str | None,
+) -> None:
+    """Record one permanent audit-log line. See app/logic/audit_log.py and
+    services.log_audit_event: a no-op until AUDIT_LOG_DIR points at a durable
+    disk, never a failure the visitor's request can see."""
+    event = build_audit_event(
+        timestamp=datetime.now(UTC).isoformat(),
+        endpoint=endpoint,
+        client_key=_client_key(request),
+        url=url,
+        slug=slug,
+        outcome=outcome,
+        cache_hit=cache_hit,
+        duration_ms=duration_ms,
+        error=error,
+    )
+    log_audit_event(event, request.app.state.config)
+
+
 # A real, captured audit of our own repo, shown on the landing page so a first-
 # time visitor sees what the tool produces before typing anything. These are
 # genuine measured values (openhonest/slop-audit), not fabricated illustration.
@@ -146,16 +182,32 @@ async def index(request: Request):
 async def audit(request: Request, url: str = Query(...)):
     # GET (not POST) so Cloudflare can edge-cache results by ?url=. The endpoint
     # has no user side effects: it clones to a temp dir and deletes it. Repeated
-    # audits of the same repo are served from cache; the origin only does work on
-    # a cache miss, which is where the rate-limit backstop and clone timeout bite.
+    # audits of the same repo are served from Cloudflare's edge cache here, and
+    # from the process-local result cache on a direct origin hit or from
+    # /audit/stream; the origin only clones on a genuine cache miss, which is
+    # where the rate-limit backstop and clone timeout bite.
+    config = request.app.state.config
+    started_at = time.monotonic()
+
     if _rate_limited(request):
+        _log_event(request, endpoint="audit", url=url, slug=None, outcome="rate_limited",
+                   cache_hit=False, duration_ms=None, error=None)
         return _error(request, "Too many audits from your network just now. Give it a minute and try again.")
 
     ref = parse_github_url(url)
     if ref is None:
+        _log_event(request, endpoint="audit", url=url, slug=None, outcome="bad_url",
+                   cache_hit=False, duration_ms=None, error=None)
         return _error(request, "That doesn't look like a GitHub repository. Try owner/repo or a github.com URL.")
 
-    config = request.app.state.config
+    hit = cached_result(request.app.state.result_cache, ref["slug"], time.monotonic())
+    if hit is not None:
+        lang, results = hit
+        card = build_scorecard(ref["slug"], lang, results)
+        _log_event(request, endpoint="audit", url=url, slug=ref["slug"], outcome="success",
+                   cache_hit=True, duration_ms=_elapsed_ms(started_at), error=None)
+        return templates.TemplateResponse(request, "audit/_scorecard.html", {"card": card}, headers=_CACHE_1H)
+
     work_dir = Path(config["work_dir"])
     work_dir.mkdir(parents=True, exist_ok=True)
     dest = work_dir / f"{ref['owner']}-{ref['name']}-{uuid.uuid4().hex[:8]}"
@@ -165,11 +217,18 @@ async def audit(request: Request, url: str = Query(...)):
         await run_in_threadpool(clone_repo, ref["clone_url"], dest, config)
         lang, results = await run_in_threadpool(analyze_repo, dest, config)
     except AuditError as error:
+        _log_event(request, endpoint="audit", url=url, slug=ref["slug"], outcome="error",
+                   cache_hit=False, duration_ms=_elapsed_ms(started_at), error=str(error))
         return _error(request, str(error))
     finally:
         shutil.rmtree(dest, ignore_errors=True)
 
+    request.app.state.result_cache[ref["slug"]] = cache_entry(
+        lang, results, time.monotonic(), config["result_cache_ttl_seconds"]
+    )
     card = build_scorecard(ref["slug"], lang, results)
+    _log_event(request, endpoint="audit", url=url, slug=ref["slug"], outcome="success",
+               cache_hit=False, duration_ms=_elapsed_ms(started_at), error=None)
     return templates.TemplateResponse(request, "audit/_scorecard.html", {"card": card}, headers=_CACHE_1H)
 
 
@@ -177,21 +236,41 @@ async def audit(request: Request, url: str = Query(...)):
 async def audit_stream(request: Request, url: str = Query(...)) -> StreamingResponse:
     """The same audit as GET /audit, but narrated. Each step is emitted right
     before the server actually does that work, so the progress is real, not a
-    canned animation. Not cacheable (it streams); /audit is the cacheable twin
-    used for shares and permalinks."""
+    canned animation. Not cacheable at the edge (it streams); /audit is the
+    cacheable twin used for shares and permalinks. This is the path real
+    visitors use, though, so it shares the process-local result cache with
+    /audit: without that, every narrated run re-cloned its target regardless
+    of how recently the same repo had just been audited."""
+    started_at = time.monotonic()
 
     async def gen() -> AsyncIterator[str]:
         if _rate_limited(request):
+            _log_event(request, endpoint="audit_stream", url=url, slug=None, outcome="rate_limited",
+                       cache_hit=False, duration_ms=None, error=None)
             yield _sse("fail", _render("audit/_error.html",
                 {"request": request, "message": "Too many audits from your network just now. Give it a minute."}))
             return
         ref = parse_github_url(url)
         if ref is None:
+            _log_event(request, endpoint="audit_stream", url=url, slug=None, outcome="bad_url",
+                       cache_hit=False, duration_ms=None, error=None)
             yield _sse("fail", _render("audit/_error.html",
                 {"request": request, "message": "That doesn't look like a GitHub repository. Try owner/repo or a github.com URL."}))
             return
 
         config = request.app.state.config
+
+        hit = cached_result(request.app.state.result_cache, ref["slug"], time.monotonic())
+        if hit is not None:
+            lang, results = hit
+            yield _sse("step", f"Found a recent audit of {ref['slug']} — reusing it instead of re-cloning…")
+            await asyncio.sleep(_STEP_BEAT_SECONDS)
+            card = build_scorecard(ref["slug"], lang, results)
+            _log_event(request, endpoint="audit_stream", url=url, slug=ref["slug"], outcome="success",
+                       cache_hit=True, duration_ms=_elapsed_ms(started_at), error=None)
+            yield _sse("done", _render("audit/_scorecard.html", {"request": request, "card": card}))
+            return
+
         work_dir = Path(config["work_dir"])
         work_dir.mkdir(parents=True, exist_ok=True)
         dest = work_dir / f"{ref['owner']}-{ref['name']}-{uuid.uuid4().hex[:8]}"
@@ -213,11 +292,18 @@ async def audit_stream(request: Request, url: str = Query(...)) -> StreamingResp
             yield _sse("step", "Scoring verifiability and mapping to the audit dimensions…")
             results = {**config_results, **source}
             lang = str(results.get("lang", "unknown"))
+            request.app.state.result_cache[ref["slug"]] = cache_entry(
+                lang, results, time.monotonic(), config["result_cache_ttl_seconds"]
+            )
             card = build_scorecard(ref["slug"], lang, results)
             await asyncio.sleep(_STEP_BEAT_SECONDS)
 
+            _log_event(request, endpoint="audit_stream", url=url, slug=ref["slug"], outcome="success",
+                       cache_hit=False, duration_ms=_elapsed_ms(started_at), error=None)
             yield _sse("done", _render("audit/_scorecard.html", {"request": request, "card": card}))
         except AuditError as error:
+            _log_event(request, endpoint="audit_stream", url=url, slug=ref["slug"], outcome="error",
+                       cache_hit=False, duration_ms=_elapsed_ms(started_at), error=str(error))
             yield _sse("fail", _render("audit/_error.html", {"request": request, "message": str(error)}))
         finally:
             shutil.rmtree(dest, ignore_errors=True)

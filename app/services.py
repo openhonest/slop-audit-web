@@ -11,7 +11,10 @@ AuditError for the route to turn into a message.
 from __future__ import annotations
 
 import json
+import logging
+import shutil
 import subprocess
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -21,6 +24,9 @@ from l1_analyzer import indicators
 
 from app.config import AppConfig
 from app.logic.guards import size_exceeds
+from app.logic.sweep import stale_names
+
+logger = logging.getLogger("slop_audit.services")
 
 
 class AuditError(Exception):
@@ -95,3 +101,36 @@ def analyze_repo(path: Path, config: AppConfig) -> tuple[str, dict[str, Any]]:
     results: dict[str, Any] = {**analyze_config(path), **source}
     lang = str(results.get("lang", "unknown"))
     return lang, results
+
+
+def sweep_work_dir(work_dir: Path, max_age_seconds: float) -> list[str]:
+    """Delete work-dir entries stale_names flags as orphaned: a clone or
+    analyze step killed mid-flight (process restart, OOM, a disconnected SSE
+    client) whose route-level `finally: rmtree` never ran. Returns the names
+    removed, for the caller to log."""
+    if not work_dir.exists():
+        return []
+    now = time.time()
+    mtimes = {entry.name: entry.stat().st_mtime for entry in work_dir.iterdir()}
+    removed = stale_names(mtimes, max_age_seconds, now)
+    for name in removed:
+        shutil.rmtree(work_dir / name, ignore_errors=True)
+    return removed
+
+
+def log_audit_event(event: dict[str, Any], config: AppConfig) -> None:
+    """Append one JSON line to the permanent audit log. A no-op when
+    AUDIT_LOG_DIR isn't set: an ephemeral deploy has nowhere durable to write,
+    and writing to a fake default path would look like permanent logging
+    while losing everything on the next restart. Never raises: a logging
+    failure must not break the audit response a visitor is waiting on."""
+    log_dir = config["audit_log_dir"]
+    if log_dir is None:
+        return
+    path = Path(log_dir) / "audit-events.jsonl"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a") as handle:
+            handle.write(json.dumps(event) + "\n")
+    except OSError:
+        logger.warning("could not write audit log entry", exc_info=True)
